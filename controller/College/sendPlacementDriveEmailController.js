@@ -1,5 +1,5 @@
 const College = require('../../models/College');
-const { sendEmail } = require('../../services/emailService');
+const { sendEmail, generateInviteToken } = require('../../services/emailService');
 
 const sendPlacementDriveEmail = async (req, res) => {
   try {
@@ -34,25 +34,17 @@ const sendPlacementDriveEmail = async (req, res) => {
     await college.save();
 
     const emailTo = college.contact?.email || college.poc?.email;
-    const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
-    const inviteLink = `${frontendUrl}/placement-drive/${college._id}`; // Use ID instead of token for simplicity
+    const name = college.poc?.name || college.name;
+    const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:8080';
+    const inviteToken = generateInviteToken();
+    college.inviteToken = inviteToken;
+    college.inviteTokenExpiry = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000); // 7 days
+    const inviteLink = `${frontendUrl}/placement-drive/${inviteToken}`;
 
-    await sendEmail(emailTo, 'Placement Drive Invitation - Abhishek Academy', {
-      name: college.poc?.name || college.name,
-      subject: 'Placement Drive Invitation',
-      message: `
-        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-          <h2 style="color: #13294B; text-align: center;">🌟 Placement Drive Invitation</h2>
-          <p>Dear <strong>${college.poc?.name || college.name} Team</strong>,</p>
-          <p>Excited to host a Placement Drive at your university! Students from ${technologies?.join(', ') || 'various programs'} are eligible.</p>
-          <div style="text-align: center; margin: 30px 0;">
-            <a href="${inviteLink}" style="background: #13294B; color: white; padding: 15px 30px; text-decoration: none; border-radius: 8px; font-weight: bold;">
-              Confirm Participation
-            </a>
-          </div>
-          <p>Best regards,<br>Abhishek Academy Placement Team</p>
-        </div>
-      `
+    await sendEmail(emailTo, 'Placement Drive Invitation - Unreal', {
+      name,
+      form_link: inviteLink,
+      subject: 'Placement Drive Invitation'
     });
 
     res.json({

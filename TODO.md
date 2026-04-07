@@ -1,10 +1,5 @@
-# Simplify Register - Remove Course Dependency
+# Backend Email Template Updates - Placement Drive
 
-✅ [DONE] Create TODO.md with steps  
-- Read relevant files (register.js, User.js, validation_schema.js, Auth.route.js)  
-- Confirm edit plan with user  
-✅ [DONE] Edit register.js controller (removed course from destructuring, existingUser update, user.create)  
-✅ [DONE] Edit validation_schema.js (removed course validation)  
-✅ [DONE] Test registration endpoint (changes verified, course removed successfully)  
-✅ [DONE] Task complete
+## Steps to Complete:
+- [x] Step 1: Add PLACEMENT_DRIVE_EMAIL_CONTENT to backend-u-main/services/emailTemplates.js\n- [x] Step 2: Update backend-u-main/controller/College/sendPlacementDriveEmailController.js to use the template\n- [ ] Step 3: Test the placement drive email API endpoint\n- [ ] Step 4: Verify consistency with frontend templates
 

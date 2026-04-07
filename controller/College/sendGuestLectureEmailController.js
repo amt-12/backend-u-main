@@ -1,5 +1,6 @@
 const College = require('../../models/College');
 const { sendEmail } = require('../../services/emailService');
+const { GUEST_LECTURE_EMAIL_CONTENT } = require('../../services/emailTemplates');
 
 const sendGuestLectureEmail = async (req, res) => {
   try {
@@ -28,18 +29,13 @@ const sendGuestLectureEmail = async (req, res) => {
     const emailTo = college.contact?.email || college.poc?.email;
     const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
 
-    await sendEmail(emailTo, 'Guest Lecture Invitation - Abhishek Academy', {
-      name: college.poc?.name || college.name,
+    const name = college.poc?.name || college.name;
+    const message = GUEST_LECTURE_EMAIL_CONTENT.replace(/\${name}/g, name);
+
+    await sendEmail(emailTo, 'Guest Lecture Invitation - Unreal', {
+      name,
       subject: 'Guest Lecture Invitation',
-      message: `
-        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-          <h2 style="color: #13294B; text-align: center;">📖 Guest Lecture Invitation</h2>
-          <p>Dear <strong>${college.poc?.name || college.name} Team</strong>,</p>
-          <p>We would like to invite you for a Guest Lecture session at Abhishek Academy. This is a great opportunity for your students.</p>
-          <p>Please confirm your availability.</p>
-          <p>Best regards,<br>Abhishek Academy Team</p>
-        </div>
-      `
+      message
     });
 
     res.json({

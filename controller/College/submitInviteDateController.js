@@ -3,7 +3,7 @@ const College = require('../../models/College');
 const submitInviteDate = async (req, res) => {
   try {
     const { token } = req.params;
-    const { placementDriveDate, placementDriveEndDate, inviteType } = req.body;
+    const { placementDriveDate, placementDriveEndDate, inviteType, poc, tpo } = req.body;
 
     if (!placementDriveDate) {
       return res.status(400).json({ success: false, error: 'Placement drive date is required' });
@@ -21,13 +21,20 @@ const submitInviteDate = async (req, res) => {
       });
     }
 
-    // Update college with date selection
+    // Update college with date selection and POC/TPO
     college.placementDriveDate = new Date(placementDriveDate);
     if (placementDriveEndDate) {
-      college.placementDriveEndDate = new Date(placementDriveEndDate); // Add field if needed
+      college.placementDriveEndDate = new Date(placementDriveEndDate);
     }
     college.dateSubmittedAt = new Date();
-    college.inviteStatus = 'date_selected';
+    college.inviteStatus = 'details_submitted';
+    
+    if (poc) {
+      college.poc = { ...(college.poc || {}), ...poc };
+    }
+    if (tpo) {
+      college.tpo = { ...(college.tpo || {}), ...tpo };
+    }
 
     await college.save();
 
