@@ -5,8 +5,7 @@ const WORKSHOP_EMAIL_CONTENT = `
     </div>
     <p><strong>Dear Sir/Madam,</strong></p>
     <p>Greetings from Unreal.</p>
-    <p>We are reaching out to collaborate with your institution for providing <strong>placement support and job opportunities</strong> to your students through our centralized Job Engine platform.</p>
-    <p>Unreal aggregates and filters fresher and internship opportunities from multiple platforms including LinkedIn, Indeed, and Naukri, ensuring students receive relevant and verified job openings.</p>
+    <p>We are reaching out to collaborate with your institution for providing <strong>placement support and job opportunities</strong> to your students through our centralized Job Engine platform.</p>\n    <p>We would like to support your students with placement opportunities</p>\n    <p>Unreal aggregates and filters fresher and internship opportunities from multiple platforms including LinkedIn, Indeed, and Naukri, ensuring students receive relevant and verified job openings.</p>
     <h3 style="color: #13294B;">What We Offer:</h3>
     <ul>
       <li>Access to curated fresher and internship opportunities</li>
@@ -25,14 +24,12 @@ const WORKSHOP_EMAIL_CONTENT = `
     <p>We aim to simplify the placement process and help institutions improve their placement outcomes.</p>
     <p>Please click the button below to submit your placement details:</p>
     <div>
-      <a href="http://localhost:8080/placement-drive/testtoken123" style="background:#2563eb; color:#ffffff; padding:14px 28px; text-decoration:none; border:none; border-radius:6px; font-size:15px; font-weight:500; cursor:pointer; display:inline-block;">
-        Submit Placement Details
+      <a href="{{inviteLink}}" style="background:#2563eb; color:#ffffff; padding:14px 28px; text-decoration:none; border:none; border-radius:6px; font-size:15px; font-weight:500; cursor:pointer; display:inline-block;">
+Share Details
       </a>
       <p style="margin-top:10px; font-size:13px; color:#666;">
-        <a href="http://localhost:8080/placement-drive/testtoken123" style="color:#2563eb; text-decoration:underline;">Or click here</a> if button doesn\'t work
-      </p>
-    </div>
-    <p>We would be glad to connect with your Training & Placement Officer to take this forward.</p>
+        <a href="{{inviteLink}}" style="color:#2563eb; text-decoration:underline;">Or click here</a> if button doesn\'t work
+      </p>\n    </div>\n    <p>We will coordinate directly with your Training & Placement Officer once details are shared.</p>
     <p>Looking forward to your response.</p>
     <p>Warm regards,<br>Team Unreal</p>
     <div style="margin-top: 30px; background: linear-gradient(135deg, #1e3a8a 0%, #3b82f6 50%, #1e40af 100%); padding: 20px; border-radius: 12px; color: white;">
@@ -52,8 +49,7 @@ const GUEST_LECTURE_EMAIL_CONTENT = `
       <img src="https://unrealstudioz.in/assets/UNREALLOGO-DfmVor3b.png" alt="Unreal Studioz Logo" style="max-width: 200px; height: auto;">
     </div>
     <p><strong>Dear Sir/Madam,</strong></p>
-    <p>Greetings from Unreal.</p>
-    <p>We would like to offer a <strong>Guest Lecture session</strong> for your students focusing on career readiness, industry expectations, and placement strategies.</p>
+<p>Greetings from Unreal.</p>\n    <p>Following our previous communication regarding the workshop</p>\n    <p>We would like to offer a <strong>Guest Lecture session</strong>
     <p>The session is designed to provide students with clarity on how to prepare effectively for internships and job opportunities in today's competitive environment.</p>
     <h3 style="color: #13294B;">Key Topics Covered:</h3>
     <ul>
@@ -68,8 +64,7 @@ const GUEST_LECTURE_EMAIL_CONTENT = `
     <h3 style="color: #13294B;">Duration:</h3>
     <p>60–90 Minutes</p>
     <p>This session will help students gain practical insights and direction for their career path.</p>
-    <p>We would be honored to conduct this session at your institution.</p>
-    <p>Looking forward to your response.</p>
+    <p>We would be honored to conduct this session at your institution.</p>\n    <p><strong>We are scheduling limited sessions this month</strong></p>\n    <p>Looking forward to your response.</p>
     <p>Warm regards,<br>Team Unreal</p>
     <div style="margin-top: 30px; background: linear-gradient(135deg, #1e3a8a 0%, #3b82f6 50%, #1e40af 100%); padding: 20px; border-radius: 12px; color: white;">
       <p style="margin: 0 0 8px 0; font-size: 16px; font-weight: 500;">
@@ -87,9 +82,7 @@ const PLACEMENT_DRIVE_EMAIL_CONTENT = `
     <div style="text-align: center; margin-bottom: 20px; background: linear-gradient(135deg, #1e3a8a 0%, #3b82f6 50%, #1e40af 100%); padding: 20px; border-radius: 12px;">
       <img src="https://unrealstudioz.in/assets/UNREALLOGO-DfmVor3b.png" alt="Unreal Studioz Logo" style="max-width: 200px; height: auto;">
     </div>
-    <p><strong>Dear \${name},</strong></p>
-    <p>Greetings from Unreal.</p>
-    <p>We are reaching out to collaborate with your institution for providing <strong>placement support and job opportunities</strong> to your students through our centralized Job Engine platform.</p>
+    <p><strong>Dear \${name},</strong></p>\n    <p>Greetings from Unreal.</p>\n    <p>After conducting workshops/interaction sessions…</p>\n    <p>We are reaching out to collaborate with your institution for providing <strong>placement support and job opportunities</strong> to your students through our centralized Job Engine platform.</p>
     <p>Unreal aggregates and filters fresher and internship opportunities from multiple platforms including LinkedIn, Indeed, and Naukri, ensuring students receive relevant and verified job openings.</p>
     <h3 style="color: #13294B;">What We Offer:</h3>
     <ul>

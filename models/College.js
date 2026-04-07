@@ -59,7 +59,7 @@ const collegeSchema = new mongoose.Schema({
   inviteTokenExpiry: Date,
   inviteStatus: {
     type: String,
-    enum: ['not_sent', 'invited', 'waiting', 'visiting_date_decided', 'sent', 'pending', 'invite_accepted', 'date_selected', 'completed', 'declined'],
+enum: ['not_sent', 'invited', 'waiting', 'visiting_date_decided', 'sent', 'pending', 'invite_accepted', 'date_selected', 'details_submitted', 'completed', 'declined'],
     default: 'not_sent'
   },
   invitedAt: Date,
