@@ -11,6 +11,8 @@ const testRoutes = require("./test.route");
 
 const liveClassRoutes = require("./liveClasses.route");
 const collegeRoutes = require("./colleges.route");
+const internshipRoutes = require("./Internship.route");
+const studentRoutesSingular = require("./student.route");
 
 const router = express.Router();
 
@@ -18,11 +20,13 @@ router.use("/auth", authRoutes);
 router.use("/test", testRoutes);
 router.use("/study-materials", studyMaterialsRoutes);
 router.use("/students", studentsRoutes);
+router.use("/student", studentRoutesSingular);
 router.use("/courses", courseRoutes);
 router.use("/subjects", subjectRoutes);
 router.use("/college", collegeRoutes);
 router.use("/live-classes", liveClassRoutes);
 router.use("/demo-classes", demoClassRoutes);
 router.use("/notifications", notificationsRoutes);
+router.use("/internship", internshipRoutes);
 
 module.exports = router;

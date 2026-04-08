@@ -39,7 +39,7 @@ const sendWorkshopEmail = async (req, res) => {
 
     let emailHtml = WORKSHOP_EMAIL_CONTENT.replace(/{{inviteLink}}/g, inviteLink);
 
-    await sendEmail(emailTo, 'Workshop Invitation - Unreal', {
+    sendEmail(emailTo, 'Workshop Invitation - Unreal', {
       name: college.poc?.name || college.name,
       message: emailHtml
     });

@@ -114,6 +114,37 @@ async function sendLiveClassStartEmail(to, name, classData) {
   });
 }
 
+// Test completion email
+async function sendTestCompletionEmail(student, { score = 0, totalQuestions = 0 }) {
+  const to = student.email;
+  const name = student.fullName || student.name;
+  const subject = 'Test Submitted Successfully! 📝';
+  
+  const message = `
+    <h3 style="color:#13294B;">Congratulations on Completing the Test!</h3>
+    <p>Dear ${name},</p>
+    <p>Your test has been successfully submitted and recorded.</p>
+    <table style="border-collapse:collapse; width:100%; margin:16px 0;">
+      <tr style="background:#f9f6ef;">
+        <td style="padding:8px; font-weight:bold; color:#13294B;">Score</td>
+        <td style="padding:8px;">${score} / ${totalQuestions}</td>
+      </tr>
+      <tr>
+        <td style="padding:8px; font-weight:bold; color:#13294B;">Status</td>
+        <td style="padding:8px; color:green;">Successfully Submitted</td>
+      </tr>
+    </table>
+    <p>We will review your performance and get back to you with the next steps.</p>
+    <p>Best of luck with your future endeavors!</p>
+  `;
+
+  await sendEmail(to, subject, {
+    name,
+    subject,
+    message
+  });
+}
+
 module.exports = { 
   sendEmail, 
   sendWelcomeEmail, 
@@ -121,6 +152,6 @@ module.exports = {
   sendStudentWelcomeEmail, 
   sendEnrollmentEmail, 
   sendLiveClassStartEmail,
-  generateInviteToken 
+  sendTestCompletionEmail
 };
 
