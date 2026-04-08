@@ -21,7 +21,7 @@ const app = express();
 app.use(express.json());
 app.use(cookieParser());
 app.use(cors({
-  origin: "http://localhost:8080",
+  origin: ["http://localhost:8080", "http://localhost:8081"],
   credentials: true
 }));
 
@@ -35,7 +35,7 @@ const server = http.createServer(app);
 
 io = socketIo(server, {
   cors: {
-    origin: process.env.CORS, 
+    origin: process.env.CORS,
     credentials: true
   }
 });

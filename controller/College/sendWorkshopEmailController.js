@@ -29,7 +29,7 @@ const sendWorkshopEmail = async (req, res) => {
     const emailTo = college.contact?.email || college.poc?.email;
     const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
 
-    await sendEmail(emailTo, 'Workshop Invitation - Unreal', {
+    sendEmail(emailTo, 'Workshop Invitation - Unreal', {
       name: college.poc?.name || college.name,
       message: WORKSHOP_EMAIL_CONTENT
     });
