@@ -3,7 +3,6 @@ const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
 
-
 const transporter = nodemailer.createTransport({
   service: 'gmail',
   auth: {
