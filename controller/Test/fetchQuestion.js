@@ -10,14 +10,17 @@ const InternshipApplication = require("../../models/InternshipApplication");
 const normalizeTechnology = (tech) => {
   if (!tech) return "mern";
   const t = tech.toLowerCase().trim();
-  
+
   // Mapping logic
   if (t.includes("mern") || t.includes("full stack")) return "mern";
   if (t.includes("python")) return "python";
-  if (t.includes("ai") || t.includes("machine learning")) return "ai-ml";
-  if (t.includes("graphic") || t.includes("design")) return "graphic";
+  if (t.includes("aiml")) return "aiml";
+  if (t.includes("ai") || t.includes("machine learning")) return "aiml";
+  if (t.includes("datascience")) return "datascience";
+  if (t.includes("mobile")) return "mobile";
+  if (t.includes("graphics") || t.includes("design")) return "graphics";
   if (t.includes("java")) return "java";
-  
+
   return t; // Default to lowercase if no specific mapping
 };
 
@@ -32,43 +35,44 @@ const fetchQuestion = async (req, res, next) => {
       });
     }
 
-    // 1️⃣ Initialize Cache Keys
-    const questionCacheKey = `test:questions:${studentId}:${testId}`;
-    const sessionKey = `test:session:${studentId}`;
-    const orderKey = `test:order:${studentId}`;
+    // 1️⃣ Always resolve student technology FIRST (before cache check)
+    //    This prevents stale cross-technology cache hits (e.g. MERN cache served to Graphics student)
+    let rawTechnology = "mern";
+    let studentEmail = "";
 
-    // 2️⃣ Check Cache First
+    try {
+      let record = await Student.findById(studentId);
+      if (record) {
+        console.log("🔍 [fetchQuestion] Found in Student model");
+      } else {
+        record = await InternshipApplication.findById(studentId);
+        if (record) console.log("🔍 [fetchQuestion] Found in InternshipApplication model");
+      }
+
+      if (record) {
+        rawTechnology = record.technology;
+        studentEmail = record.email;
+        console.log(`✅ [fetchQuestion] Record Found. Raw Tech: "${rawTechnology}", Email: ${studentEmail}`);
+      } else {
+        console.warn(`⚠️ [fetchQuestion] No record found for ID: ${studentId}. Proceeding with default 'mern'.`);
+      }
+    } catch (err) {
+      console.error("❌ [fetchQuestion] Error in hybrid lookup:", err.message);
+    }
+
+    const studentTechnology = normalizeTechnology(rawTechnology);
+    console.log(`🎯 [fetchQuestion] Target Tech Standardized: "${studentTechnology}"`);
+
+    // 2️⃣ Cache keys include technology to isolate each tech's question set per student
+    const questionCacheKey = `test:questions:${studentId}:${studentTechnology}`;
+    const sessionKey = `test:session:${studentId}`;
+    const orderKey = `test:order:${studentId}:${studentTechnology}`;
+
+    // 3️⃣ Check Cache (keyed by technology — no stale hits from a different tech)
     let questions = await redis.get(questionCacheKey);
 
     if (!questions) {
-      console.log(`📚 [fetchQuestion] Cache miss for student: ${studentId}. Initializing fresh 20-question session...`);
-
-      // A. Hybrid Record Lookup (Student or InternshipApplication)
-      let rawTechnology = "mern";
-      let studentEmail = "";
-      
-      try {
-        let record = await Student.findById(studentId);
-        if (record) {
-          console.log("🔍 [fetchQuestion] Found in Student model");
-        } else {
-          record = await InternshipApplication.findById(studentId);
-          if (record) console.log("🔍 [fetchQuestion] Found in InternshipApplication model");
-        }
-
-        if (record) {
-          rawTechnology = record.technology;
-          studentEmail = record.email;
-          console.log(`✅ [fetchQuestion] Record Found. Raw Tech: "${rawTechnology}", Email: ${studentEmail}`);
-        } else {
-          console.warn(`⚠️ [fetchQuestion] No record found for ID: ${studentId}. Proceeding with default 'mern'.`);
-        }
-      } catch (err) {
-        console.error("❌ [fetchQuestion] Error in hybrid lookup:", err.message);
-      }
-
-      const studentTechnology = normalizeTechnology(rawTechnology);
-      console.log(`🎯 [fetchQuestion] Target Tech Standardized: "${studentTechnology}"`);
+      console.log(`📚 [fetchQuestion] Cache miss for student: ${studentId}, tech: ${studentTechnology}. Fetching fresh questions...`);
 
       // B. Fetch 10 Random Aptitude Questions
       let aptitudeQuestions = await Question.aggregate([
@@ -98,7 +102,7 @@ const fetchQuestion = async (req, res, next) => {
 
       const allQuestions = [...aptitudeQuestions, ...techQuestions];
       console.log(`📊 [fetchQuestion] Total session questions: ${allQuestions.length}`);
-      
+
       // E. Data Normalization (Handle semicolon-separated options)
       const normalizedQuestions = allQuestions.map(q => {
         let options = q.options;

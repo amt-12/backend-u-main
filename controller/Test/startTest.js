@@ -47,6 +47,18 @@ const startTest = async (req, res, next) => {
     if (existingSession) {
       const ttl = await redis.ttl(sessionKey);
 
+      // Still clear question/order caches so a technology change is always respected
+      try {
+        const keys = await redis.keys(`test:questions:${studentId}:*`);
+        if (keys.length > 0) await redis.del(...keys);
+        await redis.del(`test:order:${studentId}`);
+        // Also clear tech-keyed order keys
+        const orderKeys = await redis.keys(`test:order:${studentId}:*`);
+        if (orderKeys.length > 0) await redis.del(...orderKeys);
+      } catch (err) {
+        console.warn("⚠️ [startTest] Error clearing caches on existing session:", err.message);
+      }
+
       return res.status(200).json({
         success: true,
         message: "Test already running",
@@ -55,14 +67,16 @@ const startTest = async (req, res, next) => {
     }
 
     // 4️⃣ Invalidate old question/order caches (Fresh start)
-    const questionCacheKeyPrefix = `test:questions:${studentId}:*`;
-    const orderKey = `test:order:${studentId}`;
     try {
-      // Find all keys matching the question cache pattern
-      const keys = await redis.keys(questionCacheKeyPrefix);
-      if (keys.length > 0) await redis.del(...keys);
-      await redis.del(orderKey);
-      console.log("🧹 [startTest] Cleared old question/order caches for student:", studentId);
+      // Clear all question caches (covers tech-keyed keys like test:questions:id:graphics)
+      const questionKeys = await redis.keys(`test:questions:${studentId}:*`);
+      if (questionKeys.length > 0) await redis.del(...questionKeys);
+      // Clear all order caches (covers tech-keyed keys like test:order:id:graphics)
+      const orderKeys = await redis.keys(`test:order:${studentId}:*`);
+      if (orderKeys.length > 0) await redis.del(...orderKeys);
+      // Also clear legacy non-tech-keyed order key
+      await redis.del(`test:order:${studentId}`);
+      console.log("🧹 [startTest] Cleared all question/order caches for student:", studentId);
     } catch (err) {
       console.warn("⚠️ [startTest] Error clearing caches:", err.message);
     }

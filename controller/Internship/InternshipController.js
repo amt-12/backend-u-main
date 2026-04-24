@@ -2,7 +2,7 @@ const Student = require('../../models/Student.model');
 
 const applyForInternship = async (req, res) => {
   try {
-    const { name, email, phone, college, city, education, course, passingYear, semester, technology, link } = req.body;
+    const { name, email, phone, college, city, education, passingYear, semester, technology, link } = req.body;
 
     // Basic validation
     if (!name || !email || !phone || !college) {
@@ -13,8 +13,19 @@ const applyForInternship = async (req, res) => {
     }
 
     // Check if the application already exists for this email
-    const existingApplication = await Student.findOne({ email });
+    let existingApplication = await Student.findOne({ email });
     if (existingApplication) {
+      // Update the existing record with the newly submitted data
+      existingApplication.name = name;
+      existingApplication.phone = phone;
+      existingApplication.college = college;
+      existingApplication.city = city;
+      existingApplication.education = education;
+      existingApplication.passingYear = passingYear;
+      existingApplication.semester = semester;
+      existingApplication.technology = technology;
+      await existingApplication.save();
+
       return res.status(200).json({
         success: true,
         message: 'You have already applied for this internship. We are using your existing application.',
@@ -34,7 +45,6 @@ const applyForInternship = async (req, res) => {
       college,
       city,
       education,
-      course,
       passingYear,
       semester,
       technology,

@@ -31,10 +31,6 @@ const studentSchema = new mongoose.Schema({
     type: String,
     trim: true
   },
-  course: {
-    type: String,
-    trim: true
-  },
   passingYear: {
     type: String,
     trim: true
