@@ -17,11 +17,57 @@ async function sendEmail(to, subject, data = {}) {
   try {
     let html;
     
-    // If message is provided and looks like full HTML, use it directly
-    if (data.message && data.message.includes('<div') && data.message.includes('style=')) {
-      html = data.message;
+    if (data.message) {
+      // Check if message is a full/self-contained HTML email
+      const isFullHtml = data.message.includes('<html') || 
+                         data.message.includes('<!DOCTYPE') ||
+                         (data.message.includes('<div') && data.message.includes('style='));
+      
+      if (isFullHtml) {
+        html = data.message;
+      } else {
+        // HTML fragment — wrap in a generic branded email body
+        html = `
+          <!DOCTYPE html>
+          <html>
+          <head>
+            <meta charset="UTF-8">
+            <title>${subject}</title>
+          </head>
+          <body style="margin:0; padding:0; background:#f4f6f9; font-family: Arial, Helvetica, sans-serif;">
+            <table width="100%" cellpadding="0" cellspacing="0" style="padding:30px 0;">
+              <tr>
+                <td align="center">
+                  <table width="600" cellpadding="0" cellspacing="0" style="background:#ffffff; border-radius:8px; overflow:hidden; box-shadow:0 4px 20px rgba(0,0,0,0.05);">
+                    <!-- Header -->
+                    <tr>
+                      <td style="background:linear-gradient(135deg, #0f172a, #1e3a8a); padding:40px; text-align:center; color:#ffffff;">
+                        <h1 style="margin:0; font-size:32px; letter-spacing:1px;">UNREAL</h1>
+                      </td>
+                    </tr>
+                    <!-- Body -->
+                    <tr>
+                      <td style="padding:40px; color:#333;">
+                        ${data.message}
+                      </td>
+                    </tr>
+                    <!-- Footer -->
+                    <tr>
+                      <td style="background:#0f172a; color:#cbd5f5; text-align:center; padding:30px 20px; font-size:13px;">
+                        <p style="margin:0 0 10px 0;">Unreal | Empowering Careers</p>
+                        <p style="margin:0; font-size:12px; opacity:0.7;">© ${new Date().getFullYear()} Unreal. All rights reserved.</p>
+                      </td>
+                    </tr>
+                  </table>
+                </td>
+              </tr>
+            </table>
+          </body>
+          </html>
+        `;
+      }
     } else {
-      // Fallback to old template logic
+      // Fallback to template for backward compatibility (e.g., placement drive emails)
       let template = fs.readFileSync(path.join(__dirname, '../templates/email-template.html'), 'utf8');
       Object.keys(data).forEach(key => {
         const regex = new RegExp(`{{${key}}}`, 'g');
@@ -153,6 +199,7 @@ module.exports = {
   sendStudentWelcomeEmail, 
   sendEnrollmentEmail, 
   sendLiveClassStartEmail,
-  sendTestCompletionEmail
+  sendTestCompletionEmail,
+  generateInviteToken
 };
 

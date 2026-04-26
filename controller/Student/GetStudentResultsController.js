@@ -40,12 +40,36 @@ const getResultsByCollege = async (req, res, next) => {
       }
     }
 
-    // Fetch results with population
-    // Note: studentId ref is Student, but many records might be in InternshipApplication
+    // Fetch results with population attempts
     let results = await Result.find(query)
       .populate('studentId')
       .populate('collegeId')
       .sort({ createdAt: -1 });
+
+    // --- Build college lookup map for reliable name resolution ---
+    const collegeIdSet = new Set();
+    results.forEach(r => {
+      // Try result's own collegeId (even if populate failed)
+      if (r.collegeId) {
+        const cid = r.collegeId._id ? r.collegeId._id.toString() : r.collegeId.toString();
+        collegeIdSet.add(cid);
+      }
+      // Try student's college (try populated first, then raw id)
+      if (r.studentId && r.studentId.college) {
+        const sc = r.studentId.college;
+        if (sc._id) collegeIdSet.add(sc._id.toString());
+        else collegeIdSet.add(sc.toString());
+      }
+    });
+
+    let collegeMap = new Map();
+    if (collegeIdSet.size > 0) {
+      const collegesList = await College.find({ _id: { $in: Array.from(collegeIdSet) } }, 'name').lean();
+      collegesList.forEach(c => {
+        if (c._id) collegeMap.set(c._id.toString(), c.name || 'N/A');
+      });
+    }
+    // --- End college lookup ---
 
     // Transform results with smart collection lookup
     let processedResults = await Promise.all(results.map(async (r) => {
@@ -64,8 +88,36 @@ const getResultsByCollege = async (req, res, next) => {
         studentSource = student ? 'StudentRegistration' : 'Unknown';
       }
 
-      const college = r.collegeId || (student && student.college && typeof student.college === 'object' ? student.college : {});
+      // Resolve college name using lookup map
+      let collegeName = 'N/A';
       
+      // 1. Try result's collegeId directly
+      if (r.collegeId) {
+        const cid = r.collegeId._id ? r.collegeId._id.toString() : r.collegeId.toString();
+        if (collegeMap.has(cid)) {
+          collegeName = collegeMap.get(cid);
+        } else if (r.collegeId.name) {
+          collegeName = r.collegeId.name;
+        }
+      }
+      
+      // 2. Fallback to student's college via lookup map
+      if (collegeName === 'N/A' && student && student.college) {
+        const sc = student.college;
+        const scId = sc._id ? sc._id.toString() : sc.toString();
+        if (collegeMap.has(scId)) {
+          collegeName = collegeMap.get(scId);
+        } else if (sc.name) {
+          collegeName = sc.name;
+        }
+      }
+
+      // Resolve course: Student has no 'course' field, try technology or other fields
+      let course = 'N/A';
+      if (student) {
+        course = student.course || student.technology || student.education || 'N/A';
+      }
+
       const percentage = r.totalQuestions > 0 
         ? Math.round((r.correct / r.totalQuestions) * 100) 
         : 0;
@@ -73,18 +125,16 @@ const getResultsByCollege = async (req, res, next) => {
       const passThreshold = 50;
       const resultStatus = percentage >= passThreshold ? 'PASS' : 'FAIL';
 
-      // Unified mapping logic
-      const name = student ? (student.fullName || student.name || 'N/A') : 'N/A';
+      // Name resolution
+      const name = student ? (student.name || student.fullName || 'N/A') : 'N/A';
       const email = student ? (student.email || student.collegeEmail || 'N/A') : 'N/A';
-      const collegeName = college.name || (student && student.collegeName) || (student && typeof student.college === 'string' ? student.college : 'N/A');
-      const course = student ? (student.course || 'N/A') : 'N/A';
 
       return {
         _id: r._id,
         studentId: r.studentId,
         studentName: name,
         studentEmail: email,
-        collegeId: college._id || r.collegeId,
+        collegeId: (r.collegeId && r.collegeId._id) ? r.collegeId._id.toString() : (r.collegeId ? r.collegeId.toString() : null),
         collegeName: collegeName,
         course: course,
         testId: r.testId,
@@ -96,7 +146,7 @@ const getResultsByCollege = async (req, res, next) => {
         status: resultStatus,
         createdAt: r.createdAt,
         updatedAt: r.updatedAt,
-        _debug_source: studentSource // Helpful for debugging population issues
+        _debug_source: studentSource
       };
     }));
 

@@ -39,7 +39,12 @@ const submitTest = async (req, res, next) => {
 
     questions.forEach((q, index) => {
       if (answers[index] !== undefined) {
-        if (Number(answers[index]) === q.correctAnswer) {
+        // Answers are stored as strings like "option_0", "option_1", etc.
+        // Extract the numeric part for comparison with correctAnswer
+        const selectedOptionStr = answers[index].toString();
+        const selectedOptionNumber = parseInt(selectedOptionStr.replace('option_', ''), 10);
+        
+        if (!isNaN(selectedOptionNumber) && selectedOptionNumber === q.correctAnswer) {
           correct++;
         }
       }

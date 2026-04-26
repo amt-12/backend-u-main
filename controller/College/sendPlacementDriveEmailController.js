@@ -39,7 +39,13 @@ const sendPlacementDriveEmail = async (req, res) => {
     const inviteToken = generateInviteToken();
     college.inviteToken = inviteToken;
     college.inviteTokenExpiry = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000); // 7 days
+    console.log('[sendPlacementDriveEmail] Generated token:', inviteToken);
+    console.log('[sendPlacementDriveEmail] Token expiry:', college.inviteTokenExpiry);
+    await college.save();
+    console.log('[sendPlacementDriveEmail] College saved successfully with token');
+
     const inviteLink = `${frontendUrl}/placement-drive/${inviteToken}`;
+    console.log('[sendPlacementDriveEmail] Invite link:', inviteLink);
 
     await sendEmail(emailTo, 'Placement Drive Invitation - Unreal', {
       name,

@@ -16,9 +16,9 @@ const router = express.Router();
 
 // Public routes (no auth needed)
 router.get('/', getColleges);
-router.get('/:id', getCollege);
 router.get('/invite/:token', getInviteCollege);
 router.post('/invite/submit-date/:token', submitInviteDate);
+router.get('/:id', getCollege);
 
 // Protected routes
 router.use(protect);
