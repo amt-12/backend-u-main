@@ -192,14 +192,33 @@ async function sendTestCompletionEmail(student, { score = 0, totalQuestions = 0 
   });
 }
 
+async function sendStaffWelcomeEmail(to, name, tempPassword, dashboardLink) {
+  await sendEmail(to, 'Welcome to Unreal Studioz - Staff Account!', {
+    name,
+    subject: 'Staff Account Created',
+    message: `
+      <p>Hello ${name},</p>
+      <p>Your staff account has been created successfully.</p>
+      <p><strong>Email:</strong> ${to}</p>
+      <p><strong>Temporary Password:</strong> <span style="font-size:18px; color:#13294B;">${tempPassword}</span></p>
+      <p><em>Note: Your temporary password is your registered mobile number. Please log in to the admin dashboard and change your password after your first login.</em></p>
+      <p style="text-align:center;">
+        <a href="${dashboardLink}" style="background:#13294B; color:white; padding:12px 24px; text-decoration:none; border-radius:6px;">
+          Go to Dashboard
+        </a>
+      </p>
+    `
+  });
+}
+
 module.exports = { 
   sendEmail, 
   sendWelcomeEmail, 
   sendOtpEmail, 
   sendStudentWelcomeEmail, 
+  sendStaffWelcomeEmail,
   sendEnrollmentEmail, 
   sendLiveClassStartEmail,
   sendTestCompletionEmail,
   generateInviteToken
 };
-
