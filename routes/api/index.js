@@ -18,6 +18,7 @@ const leaveRoutes = require("./leave.route");
 const staffRoutes = require("./staff.route");
 const trainersRoutes = require("./trainers.route");
 const batchesRoutes = require("./batches.route");
+const bookCallRoutes = require("./bookCall.route");
 
 const router = express.Router();
 
@@ -38,5 +39,6 @@ router.use("/leave", leaveRoutes);
 router.use("/staff", staffRoutes);
 router.use("/trainers", trainersRoutes);
 router.use("/batches", batchesRoutes);
+router.use("/bookCall", bookCallRoutes);
 
 module.exports = router;
