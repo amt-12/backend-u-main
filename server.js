@@ -21,14 +21,14 @@ const app = express();
 app.use(express.json());
 app.use(cookieParser());
 app.use(cors({
-  origin: ["http://localhost:8080", "http://localhost:8082", "http://localhost:8081"],
+  origin: ["http://localhost:8080", "http://localhost:8082", "http://localhost:8081","https://unrealstudiozz.com"],
   credentials: true
 }));
 
 app.use(routes);
 
 app.get("/", (req, res) => {
-  res.send("Law LMS API Running ✅ with Live Classes & Reminders");
+  res.send("Unreal Running !!");
 });
 
 const server = http.createServer(app);
