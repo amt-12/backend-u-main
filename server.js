@@ -21,7 +21,7 @@ const app = express();
 app.use(express.json());
 app.use(cookieParser());
 app.use(cors({
-  origin: ["http://localhost:8080", "http://localhost:8082", "http://localhost:8081","https://unrealstudiozz.com","https://test.unrealstudiozz.com/","https://admin.unrealstudiozz.com/"],
+  origin: ["http://localhost:8080", "http://localhost:8082", "http://localhost:8081","https://unrealstudiozz.com","https://test.unrealstudiozz.com","https://admin.unrealstudiozz.com"],
   credentials: true
 }));
 
