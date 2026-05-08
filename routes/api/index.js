@@ -19,8 +19,10 @@ const staffRoutes = require("./staff.route");
 const trainersRoutes = require("./trainers.route");
 const batchesRoutes = require("./batches.route");
 const bookCallRoutes = require("./bookCall.route");
+const anyApplyInternshipRoutes = require("./anyApplyInternship.route");
 
 const router = express.Router();
+
 
 router.use("/auth", authRoutes);
 router.use("/test", testRoutes);
@@ -40,5 +42,7 @@ router.use("/staff", staffRoutes);
 router.use("/trainers", trainersRoutes);
 router.use("/batches", batchesRoutes);
 router.use("/bookCall", bookCallRoutes);
+router.use("/internship-any", anyApplyInternshipRoutes);
 
 module.exports = router;
+
