@@ -18,12 +18,7 @@ const anyApplyInternship = async (req, res) => {
     // `college` may come from the client either as a College ObjectId OR as free text/code.
     // Because we cannot assume any specific College exists for that value, we only accept
     // valid ObjectIds here and let Mongoose handle/validate the rest.
-    // if (!mongoose.Types.ObjectId.isValid(String(college))) {
-    //   return res.status(400).json({
-    //     success: false,
-    //     message: 'Invalid college id. Provide a valid College ObjectId.'
-    //   });
-    // }
+
 
 
 
@@ -104,8 +99,8 @@ const listInternshipApplications = async (req, res) => {
         .sort({ createdAt: -1 })
         .skip(skip)
         .limit(limitNum)
-        .populate('college', 'name')
         .lean(),
+
       InternshipApplication.countDocuments(query)
     ]);
 
@@ -128,9 +123,7 @@ const listInternshipApplications = async (req, res) => {
 const getInternshipApplicationById = async (req, res) => {
   try {
     const { id } = req.params;
-    const doc = await InternshipApplication.findById(id)
-      .populate('college', 'name')
-      .lean();
+    const doc = await InternshipApplication.findById(id).lean();
 
     if (!doc) return res.status(404).json({ success: false, message: 'Not found' });
     return res.status(200).json({ success: true, data: doc });
@@ -148,9 +141,7 @@ const updateInternshipApplication = async (req, res) => {
     const updated = await InternshipApplication.findByIdAndUpdate(id, updateData, {
       new: true,
       runValidators: true
-    })
-      .populate('college', 'name')
-      .lean();
+    }).lean();
 
     if (!updated) return res.status(404).json({ success: false, message: 'Not found' });
     return res.status(200).json({ success: true, data: updated });

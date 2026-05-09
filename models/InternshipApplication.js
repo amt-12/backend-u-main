@@ -18,10 +18,13 @@ const internshipApplicationSchema = new mongoose.Schema({
     required: [true, 'Phone number is required'],
     trim: true
   },
+  // Store college as plain text (e.g. "Guru Nanak Dev University, Amritsar")
+  // Previously this was an ObjectId -> caused CastError when client sends free text.
   college: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: 'College',
-    required: [true, 'College is required']
+    type: String,
+    required: [true, 'College is required'],
+    trim: true,
+    maxlength: [200, 'College name cannot exceed 200 characters']
   },
   city: {
     type: String,
