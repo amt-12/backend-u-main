@@ -2,46 +2,83 @@ const Leave = require("../../models/Leave");
 const User = require("../../models/Auth/User");
 const dayjs = require("dayjs");
 
-// Default leave balances
+// Default leave balances per month
 const DEFAULT_BALANCE = {
-  casual: { total: 12, taken: 0, remaining: 12 },
-  sick: { total: 12, taken: 0, remaining: 12 },
-  paid: { total: 15, taken: 0, remaining: 15 },
+  casual: { total: 2, taken: 0, remaining: 2 },
+  sick: { total: 2, taken: 0, remaining: 2 },
+  paid: { total: 2, taken: 0, remaining: 2 },
 };
 
-// Helper: Get user's leave balance for a year
-const getUserLeaveBalance = async (staffId, year) => {
+// Helper: Get working days in a range, grouped by "YYYY-MM"
+const getWorkingDaysByMonth = (startDate, endDate) => {
+  const start = dayjs(startDate);
+  const end = dayjs(endDate);
+  const months = {}; // format: "YYYY-MM": count
+
+  let current = start;
+  while (current.isBefore(end) || current.isSame(end, "day")) {
+    const dayOfWeek = current.day(); // 0 = Sunday, 6 = Saturday
+    if (dayOfWeek !== 0 && dayOfWeek !== 6) {
+      const key = current.format("YYYY-MM");
+      months[key] = (months[key] || 0) + 1;
+    }
+    current = current.add(1, "day");
+  }
+  return months;
+};
+
+// Helper: Get user's leave balance for a given year and month (defaults to current month)
+const getUserLeaveBalance = async (staffId, year, month) => {
+  const targetYear = year || dayjs().year();
+  const targetMonth = month || (dayjs().month() + 1);
+
+  // Format month key: YYYY-MM
+  const monthStr = targetMonth.toString().padStart(2, '0');
+  const monthKey = `${targetYear}-${monthStr}`;
+
+  // Find all approved or pending leaves for this staff
   const leaves = await Leave.find({
     staffId,
-    year,
     status: { $in: ["approved", "pending"] },
   }).lean();
 
-  const casualTaken = leaves
-    .filter((l) => l.leaveType === "casual")
-    .reduce((sum, l) => sum + l.totalDays, 0);
-  const sickTaken = leaves
-    .filter((l) => l.leaveType === "sick")
-    .reduce((sum, l) => sum + l.totalDays, 0);
-  const paidTaken = leaves
-    .filter((l) => l.leaveType === "paid")
-    .reduce((sum, l) => sum + l.totalDays, 0);
+  let casualTaken = 0;
+  let sickTaken = 0;
+  let paidTaken = 0;
+
+  for (const leave of leaves) {
+    const usage = getWorkingDaysByMonth(leave.startDate, leave.endDate);
+    const daysInMonth = usage[monthKey] || 0;
+    
+    if (daysInMonth > 0) {
+      if (leave.leaveType === "casual") {
+        casualTaken += daysInMonth;
+      } else if (leave.leaveType === "sick") {
+        sickTaken += daysInMonth;
+      } else if (leave.leaveType === "paid") {
+        paidTaken += daysInMonth;
+      }
+    }
+  }
+
+  const totalTaken = casualTaken + sickTaken + paidTaken;
+  const remaining = Math.max(0, 2 - totalTaken);
 
   return {
     casual: {
-      total: DEFAULT_BALANCE.casual.total,
+      total: 2,
       taken: casualTaken,
-      remaining: Math.max(0, DEFAULT_BALANCE.casual.total - casualTaken),
+      remaining: remaining,
     },
     sick: {
-      total: DEFAULT_BALANCE.sick.total,
+      total: 2,
       taken: sickTaken,
-      remaining: Math.max(0, DEFAULT_BALANCE.sick.total - sickTaken),
+      remaining: remaining,
     },
     paid: {
-      total: DEFAULT_BALANCE.paid.total,
+      total: 2,
       taken: paidTaken,
-      remaining: Math.max(0, DEFAULT_BALANCE.paid.total - paidTaken),
+      remaining: remaining,
     },
   };
 };
@@ -61,37 +98,56 @@ const applyLeave = async (req, res) => {
 
     const start = dayjs(startDate);
     const end = dayjs(endDate);
-    const totalDays = end.diff(start, "day") + 1;
 
-    if (totalDays <= 0) {
+    if (end.isBefore(start)) {
       return res.status(400).json({
         success: false,
         message: "End date must be after start date",
       });
     }
 
-    const year = start.year();
-    const balance = await getUserLeaveBalance(staffId, year);
+    // Calculate working days by month
+    const newLeaveUsage = getWorkingDaysByMonth(startDate, endDate);
+    const totalWorkingDays = Object.values(newLeaveUsage).reduce((sum, days) => sum + days, 0);
 
-    if (balance[leaveType].remaining < totalDays) {
+    if (totalWorkingDays <= 0) {
       return res.status(400).json({
         success: false,
-        message: `Insufficient ${leaveType} leave balance. Remaining: ${balance[leaveType].remaining} days`,
+        message: "Selected date range must include at least one working day (Monday - Friday)",
       });
     }
+
+    // Check balance for each month in the range
+    for (const [monthKey, newDays] of Object.entries(newLeaveUsage)) {
+      const [y, m] = monthKey.split("-").map(Number);
+      const balance = await getUserLeaveBalance(staffId, y, m);
+      
+      if (balance[leaveType].remaining < newDays) {
+        const monthName = dayjs(`${monthKey}-01`).format("MMMM YYYY");
+        return res.status(400).json({
+          success: false,
+          message: `Insufficient leave balance for ${monthName}. Remaining limit: ${balance[leaveType].remaining} days. Requested in this month: ${newDays} days.`,
+        });
+      }
+    }
+
+    // Fetch the start month balance snapshot to save
+    const startMonthKey = start.format("YYYY-MM");
+    const [startYear, startMonth] = startMonthKey.split("-").map(Number);
+    const startBalance = await getUserLeaveBalance(staffId, startYear, startMonth);
 
     const leave = new Leave({
       staffId,
       leaveType,
       startDate: start.toDate(),
       endDate: end.toDate(),
-      totalDays,
+      totalDays: totalWorkingDays,
       reason,
-      year,
+      year: start.year(),
       balanceSnapshot: {
-        casual: balance.casual.remaining,
-        sick: balance.sick.remaining,
-        paid: balance.paid.remaining,
+        casual: Math.max(0, startBalance.casual.remaining - (newLeaveUsage[startMonthKey] || 0)),
+        sick: Math.max(0, startBalance.sick.remaining - (newLeaveUsage[startMonthKey] || 0)),
+        paid: Math.max(0, startBalance.paid.remaining - (newLeaveUsage[startMonthKey] || 0)),
       },
     });
 
@@ -114,14 +170,16 @@ const getMyLeaveBalance = async (req, res) => {
   try {
     const staffId = req.user.userId || req.user._id || req.user.id;
     const year = parseInt(req.query.year) || dayjs().year();
+    const month = parseInt(req.query.month) || (dayjs().month() + 1);
 
-    const balance = await getUserLeaveBalance(staffId, year);
+    const balance = await getUserLeaveBalance(staffId, year, month);
 
     res.json({
       success: true,
       data: {
         balance,
         currentYear: year,
+        currentMonth: month,
       },
     });
   } catch (error) {
@@ -195,6 +253,9 @@ const cancelLeave = async (req, res) => {
 // Get Pending Leaves (for approvers)
 const getPendingLeaves = async (req, res) => {
   try {
+    if (!['admin', 'hr'].includes(req.user.role)) {
+      return res.status(403).json({ success: false, message: 'Access denied' });
+    }
     const leaves = await Leave.find({ status: "pending" })
       .populate("staffId", "name email role")
       .sort({ appliedOn: -1 })
@@ -213,6 +274,9 @@ const getPendingLeaves = async (req, res) => {
 // Get All Leaves
 const getAllLeaves = async (req, res) => {
   try {
+    if (!['admin', 'hr'].includes(req.user.role)) {
+      return res.status(403).json({ success: false, message: 'Access denied' });
+    }
     const { status, leaveType, department, year = dayjs().year(), month } = req.query;
 
     const query = { year: parseInt(year) };
@@ -252,6 +316,9 @@ const getAllLeaves = async (req, res) => {
 // Approve Leave
 const approveLeave = async (req, res) => {
   try {
+    if (!['admin', 'hr'].includes(req.user.role)) {
+      return res.status(403).json({ success: false, message: 'Access denied' });
+    }
     const approverId = req.user.userId || req.user._id || req.user.id;
     const { id } = req.params;
 
@@ -292,6 +359,9 @@ const approveLeave = async (req, res) => {
 // Reject Leave
 const rejectLeave = async (req, res) => {
   try {
+    if (!['admin', 'hr'].includes(req.user.role)) {
+      return res.status(403).json({ success: false, message: 'Access denied' });
+    }
     const { id } = req.params;
     const { reason } = req.body;
 
@@ -330,6 +400,9 @@ const rejectLeave = async (req, res) => {
 // Get Leave Stats
 const getLeaveStats = async (req, res) => {
   try {
+    if (!['admin', 'hr'].includes(req.user.role)) {
+      return res.status(403).json({ success: false, message: 'Access denied' });
+    }
     const year = parseInt(req.query.year) || dayjs().year();
 
     const allLeaves = await Leave.find({ year }).lean();

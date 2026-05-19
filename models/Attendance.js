@@ -25,6 +25,12 @@ const attendanceSchema = new mongoose.Schema(
       type: Number,
       default: 0,
     },
+    breaks: [
+      {
+        startTime: { type: Date, required: true },
+        endTime: { type: Date, default: null }
+      }
+    ],
     status: {
       type: String,
       enum: ["present", "absent", "half_day", "late", "short_leave", "pending_half_day", "pending_other", "off_duty", "on_duty", "completed"],
@@ -56,9 +62,12 @@ const attendanceSchema = new mongoose.Schema(
       enum: ["pending", "approved", "rejected", null],
       default: null,
     },
+    // Optional: these can be persisted later if you want strict monthly accounting.
+    // Right now monthly rules are computed during punch-out.
   },
   { timestamps: true }
 );
+
 
 // Compound index for efficient querying
 attendanceSchema.index({ userId: 1, date: 1 }, { unique: true });

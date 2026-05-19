@@ -6,7 +6,7 @@ const getStaffProfile = async (req, res) => {
   try {
     const userId = req.user.userId || req.user._id;
     const user = await User.findById(userId)
-      .select("name email phone address profileImage role status createdAt")
+      .select("name email phone address profileImage role status createdAt department designation dateOfJoining reportingTo employeeType salaryStructure documents")
       .lean();
 
     if (!user) {
@@ -19,7 +19,7 @@ const getStaffProfile = async (req, res) => {
     }
 
     // Check if user is staff/admin
-    if (user.role !== 'admin') {
+    if (!['admin', 'hr', 'employee'].includes(user.role)) {
       return res.status(403).json({ error: "Access denied. Staff only." });
     }
 
@@ -39,6 +39,13 @@ const getStaffProfile = async (req, res) => {
         role: user.role,
         status: user.status,
         joined: user.createdAt,
+        department: user.department || "",
+        designation: user.designation || "",
+        dateOfJoining: user.dateOfJoining || null,
+        reportingTo: user.reportingTo || null,
+        employeeType: user.employeeType || "full_time",
+        salaryStructure: user.salaryStructure || {},
+        documents: user.documents || {},
       },
     });
   } catch (error) {
@@ -61,13 +68,13 @@ const updateStaffProfile = async (req, res) => {
     const user = await User.findByIdAndUpdate(userId, updateData, {
       new: true,
       runValidators: true,
-    }).select("name email phone address profileImage role status createdAt");
+    }).select("name email phone address profileImage role status createdAt department designation dateOfJoining reportingTo employeeType salaryStructure documents");
 
     if (!user || user.deletedAt) {
       return res.status(404).json({ error: "User not found" });
     }
 
-    if (user.role !== 'admin') {
+    if (!['admin', 'hr', 'employee'].includes(user.role)) {
       return res.status(403).json({ error: "Access denied. Staff only." });
     }
 
@@ -84,6 +91,13 @@ const updateStaffProfile = async (req, res) => {
         role: user.role,
         status: user.status,
         joined: user.createdAt,
+        department: user.department || "",
+        designation: user.designation || "",
+        dateOfJoining: user.dateOfJoining || null,
+        reportingTo: user.reportingTo || null,
+        employeeType: user.employeeType || "full_time",
+        salaryStructure: user.salaryStructure || {},
+        documents: user.documents || {},
       },
     });
   } catch (error) {

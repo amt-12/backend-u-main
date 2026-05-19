@@ -36,10 +36,10 @@ const adminLogin = async (req, res) => {
       return res.status(401).json({ error: 'Invalid credentials' });
     }
 
-    // Strict admin role check
-    // if (user.role !== 'admin') {
-    //   return res.status(403).json({ error: 'Access denied. Admin role required.' });
-    // }
+    // Strict admin/staff role check
+    if (!['admin', 'hr', 'employee'].includes(user.role)) {
+      return res.status(403).json({ error: 'Access denied. Staff role required.' });
+    }
 
     // Generate token
     const token = jwt.sign(

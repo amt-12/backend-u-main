@@ -82,12 +82,118 @@ const punchOut = async (req, res) => {
     }
 
     const now = new Date();
+
+    // Close any active breaks
+    if (attendance.breaks && attendance.breaks.length > 0) {
+      attendance.breaks.forEach((b) => {
+        if (!b.endTime) {
+          b.endTime = now;
+        }
+      });
+    }
+
     const punchIn = new Date(attendance.punchInTime);
-    const diffMs = now - punchIn;
-    const totalHours = parseFloat((diffMs / (1000 * 60 * 60)).toFixed(2));
+
+    // Break ms (total break time taken today)
+    let breakMsToday = 0;
+    if (attendance.breaks && attendance.breaks.length > 0) {
+      attendance.breaks.forEach((b) => {
+        const start = new Date(b.startTime);
+        const end = b.endTime ? new Date(b.endTime) : now;
+        breakMsToday += end - start;
+      });
+    }
+
+    // Office schedule enforcement: require punches to be inside 10am-6pm window
+    // If punch-in is earlier than 10:00 or later than 18:00, we still allow punch-out but the day becomes "absent".
+    const scheduleStart = new Date(punchIn);
+    scheduleStart.setHours(10, 0, 0, 0);
+    const scheduleEnd = new Date(punchIn);
+    scheduleEnd.setHours(18, 0, 0, 0);
+
+    const isInOfficeWindow = punchIn >= scheduleStart && punchIn <= scheduleEnd;
+
+    // Net working ms for today (raw net; allowance is tracked monthly)
+    const totalMsToday = now - punchIn;
+    const rawNetMsToday = Math.max(0, totalMsToday - breakMsToday);
+    const rawNetHoursToday = rawNetMsToday / (1000 * 60 * 60);
+
+    // Monthly enforcement
+    const year = now.getFullYear();
+    const monthIndex = now.getMonth(); // 0-11
+    const startOfMonth = dayjs().year(year).month(monthIndex).startOf("month").format("YYYY-MM-DD");
+    const endOfMonth = dayjs().year(year).month(monthIndex).endOf("month").format("YYYY-MM-DD");
+
+    // Count working days in month (Mon-Fri) => expected hours = workingDays * 8
+    const firstDay = dayjs(startOfMonth);
+    const lastDay = dayjs(endOfMonth);
+    const workingDays = lastDay.diff(firstDay, 'day') + 1
+      ? (() => {
+          let cnt = 0;
+          let cur = firstDay;
+          while (cur.isBefore(lastDay) || cur.isSame(lastDay, 'day')) {
+            const dow = cur.day();
+            if (dow !== 0 && dow !== 6) cnt += 1;
+            cur = cur.add(1, 'day');
+          }
+          return cnt;
+        })()
+      : 0;
+
+    const expectedHoursMonth = workingDays * 8;
+
+    // Sum month work hours already completed (including today) AFTER applying break allowance cap.
+    // Rule: total break time allowed in month = 45 minutes, extra breaks reduce compensable net time by consuming deficit.
+    const attendanceRecords = await Attendance.find({ userId, date: { $gte: startOfMonth, $lte: endOfMonth } }).lean();
+
+    // Compute breaks used in month including (possibly) current attendance
+    const breakMinutesMonthUsed = (() => {
+      let ms = 0;
+      for (const rec of attendanceRecords) {
+        const breaks = rec.breaks || [];
+        for (const b of breaks) {
+          if (b.endTime && b.startTime) {
+            ms += new Date(b.endTime) - new Date(b.startTime);
+          }
+        }
+      }
+      // include current attendance breaks even if not yet saved punchOut time (breaks are already closed above)
+      for (const b of attendance.breaks || []) {
+        if (b.endTime && b.startTime) {
+          ms += new Date(b.endTime) - new Date(b.startTime);
+        }
+      }
+      return ms / (1000 * 60);
+    })();
+
+    const BREAK_ALLOWANCE_MINUTES = 45;
+
+    // Allowed break minutes apply globally per month. We convert to ms and cap month break deduction.
+    const allowedBreakMsMonth = Math.min(breakMinutesMonthUsed, BREAK_ALLOWANCE_MINUTES) * 60 * 1000;
+
+    // Compute month raw total elapsed ms (punch-out/in) and then apply allowance cap at month level.
+    // For simplicity with current schema, we use each day's stored totalHours if exists (net after its breaks),
+    // and then adjust using a deficit approach based on additional breaks beyond allowance.
+    // Since the system currently stores totalHours as net-after-breaks, we approximate by treating *extra break minutes*
+    // as uncompensated deduction from month hours.
+    const extraBreakMinutes = Math.max(0, breakMinutesMonthUsed - BREAK_ALLOWANCE_MINUTES);
+    const extraBreakHours = extraBreakMinutes / 60;
+
+    // Current month totalHours stored already represent net-after-breaks. We reduce by extraBreakHours to enforce allowance.
+    const monthNetHoursStored = attendanceRecords.reduce((sum, r) => sum + (r.totalHours || 0), 0);
+
+    // If current record wasn't previously included in attendanceRecords totalHours yet, add rawNetHoursToday now.
+    const monthNetHoursWithToday = monthNetHoursStored + rawNetHoursToday;
+    const monthAdjustedHours = Math.max(0, monthNetHoursWithToday - extraBreakHours);
+
+    // Determine if user has enough adjusted hours to be considered "completed" today; otherwise status can be short/absent but still valid for later compensation.
+    // Always allow punchOut; status only reflects today's shortfall vs thresholds.
+    const totalHoursTodayAdjusted = isInOfficeWindow
+      ? parseFloat((Math.max(0, rawNetHoursToday)).toFixed(2))
+      : 0;
 
     attendance.punchOutTime = now;
-    attendance.totalHours = totalHours;
+    attendance.totalHours = totalHoursTodayAdjusted;
 
     if (latitude && longitude) {
       attendance.punchOutLocation = { latitude, longitude };
@@ -100,10 +206,10 @@ const punchOut = async (req, res) => {
       attendance.punchOutReasonType = reasonType;
     }
 
-    // Determine status
-    if (totalHours < 4) {
+    // Status logic (keep existing thresholds but based on adjusted net hours today)
+    if (totalHoursTodayAdjusted < 4) {
       attendance.status = "absent";
-    } else if (totalHours < 7) {
+    } else if (totalHoursTodayAdjusted < 7) {
       if (reasonType === "half_day") {
         attendance.status = "pending_half_day";
       } else {
@@ -122,6 +228,13 @@ const punchOut = async (req, res) => {
         punchOutTime: attendance.punchOutTime,
         totalHours: attendance.totalHours,
         status: attendance.status,
+        breaks: attendance.breaks,
+        // useful for frontend compensation messaging
+        monthAdjustedHours: parseFloat(monthAdjustedHours.toFixed(2)),
+        monthExpectedHours: expectedHoursMonth,
+        monthDeficitHours: parseFloat(Math.max(0, expectedHoursMonth - monthAdjustedHours).toFixed(2)),
+        breakAllowanceUsedMinutes: parseFloat(Math.min(breakMinutesMonthUsed, BREAK_ALLOWANCE_MINUTES).toFixed(0)),
+        breakAllowanceExtraMinutes: parseFloat(extraBreakMinutes.toFixed(0)),
       },
     });
   } catch (error) {
@@ -129,6 +242,7 @@ const punchOut = async (req, res) => {
     res.status(500).json({ success: false, message: "Server error during punch out" });
   }
 };
+
 
 // Get Current Attendance Status
 const getAttendanceStatus = async (req, res) => {
@@ -149,14 +263,19 @@ const getAttendanceStatus = async (req, res) => {
           canApplyHalfDay: false,
           hasPunchOut: false,
           date: today,
+          breaks: [],
+          isOnBreak: false,
         },
       });
     }
 
     const hasPunchOut = !!attendance.punchOutTime;
+    const isOnBreak = attendance.breaks ? attendance.breaks.some(b => !b.endTime) : false;
 
     let status = attendance.status;
-    if (!hasPunchOut && status === "on_duty") {
+    if (isOnBreak) {
+      status = "on_break";
+    } else if (!hasPunchOut && status === "on_duty") {
       status = "on_duty";
     } else if (hasPunchOut) {
       status = attendance.status === "on_duty" ? "completed" : attendance.status;
@@ -172,6 +291,8 @@ const getAttendanceStatus = async (req, res) => {
         canApplyHalfDay: !hasPunchOut,
         hasPunchOut,
         date: today,
+        breaks: attendance.breaks || [],
+        isOnBreak,
       },
     });
   } catch (error) {
@@ -235,6 +356,7 @@ const getMyAttendance = async (req, res) => {
       punchOutReason: r.punchOutReason,
       punchOutReasonType: r.punchOutReasonType,
       punchOutApprovalStatus: r.punchOutApprovalStatus,
+      breaks: r.breaks || [],
     }));
 
     res.json({
@@ -265,6 +387,9 @@ const getMyAttendance = async (req, res) => {
 // Get All Staff Attendance (Admin/HR)
 const getAllAttendance = async (req, res) => {
   try {
+    if (!['admin', 'hr'].includes(req.user.role)) {
+      return res.status(403).json({ success: false, message: 'Access denied' });
+    }
     const { month, year, page = 1, limit = 10, status } = req.query;
 
     const query = {};
@@ -308,6 +433,7 @@ const getAllAttendance = async (req, res) => {
       punchInLocation: r.punchInLocation,
       punchOutLocation: r.punchOutLocation,
       notes: r.notes,
+      breaks: r.breaks || [],
       staff: r.userId
         ? {
             fullName: r.userId.name,
@@ -336,11 +462,125 @@ const getAllAttendance = async (req, res) => {
   }
 };
 
+// Start Break
+const startBreak = async (req, res) => {
+  try {
+    const userId = req.user.userId || req.user._id || req.user.id;
+    const today = getTodayString();
+
+    const attendance = await Attendance.findOne({ userId, date: today });
+
+    if (!attendance || !attendance.punchInTime) {
+      return res.status(400).json({
+        success: false,
+        message: "You must punch in before starting a break",
+      });
+    }
+
+    if (attendance.punchOutTime) {
+      return res.status(400).json({
+        success: false,
+        message: "Already punched out for today",
+      });
+    }
+
+    const activeBreak = attendance.breaks.find(b => !b.endTime);
+    if (activeBreak) {
+      return res.status(400).json({
+        success: false,
+        message: "You are already on a break",
+      });
+    }
+
+    attendance.breaks.push({ startTime: new Date() });
+    await attendance.save();
+
+    res.json({
+      success: true,
+      message: "Break started successfully",
+      data: {
+        breaks: attendance.breaks,
+        isOnBreak: true,
+      },
+    });
+  } catch (error) {
+    console.error("Start break error:", error);
+    res.status(500).json({ success: false, message: "Server error starting break" });
+  }
+};
+
+// End Break
+const endBreak = async (req, res) => {
+  try {
+    const userId = req.user.userId || req.user._id || req.user.id;
+    const today = getTodayString();
+
+    const attendance = await Attendance.findOne({ userId, date: today });
+
+    if (!attendance || !attendance.punchInTime) {
+      return res.status(400).json({
+        success: false,
+        message: "Attendance record not found",
+      });
+    }
+
+    if (attendance.punchOutTime) {
+      return res.status(400).json({
+        success: false,
+        message: "Already punched out for today",
+      });
+    }
+
+    const activeBreak = attendance.breaks.find(b => !b.endTime);
+    if (!activeBreak) {
+      return res.status(400).json({
+        success: false,
+        message: "You are not currently on a break",
+      });
+    }
+
+    activeBreak.endTime = new Date();
+    
+    // Recalculate total hours (subtracting active breaks)
+    const now = new Date();
+    const punchInTime = new Date(attendance.punchInTime);
+    let totalMs = now - punchInTime;
+
+    let breakMs = 0;
+    if (attendance.breaks && attendance.breaks.length > 0) {
+      attendance.breaks.forEach(b => {
+        const start = new Date(b.startTime);
+        const end = b.endTime ? new Date(b.endTime) : now;
+        breakMs += (end - start);
+      });
+    }
+    const netMs = Math.max(0, totalMs - breakMs);
+    attendance.totalHours = parseFloat((netMs / (1000 * 60 * 60)).toFixed(2));
+
+    await attendance.save();
+
+    res.json({
+      success: true,
+      message: "Break ended successfully",
+      data: {
+        breaks: attendance.breaks,
+        isOnBreak: false,
+        totalHours: attendance.totalHours,
+      },
+    });
+  } catch (error) {
+    console.error("End break error:", error);
+    res.status(500).json({ success: false, message: "Server error ending break" });
+  }
+};
+
 module.exports = {
   punchIn,
   punchOut,
   getAttendanceStatus,
   getMyAttendance,
   getAllAttendance,
+  startBreak,
+  endBreak,
 };
 

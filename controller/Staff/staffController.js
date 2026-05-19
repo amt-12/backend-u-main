@@ -15,7 +15,13 @@ const getStaffStats = async (req, res) => {
     const endOfMonth = dayjs(`${year}-${month}-01`).endOf("month").format("YYYY-MM-DD");
 
     // Total staff count
-    const totalStaff = await User.countDocuments({ role: "admin" });
+    const totalStaff = await User.countDocuments({
+      role: { $in: ["admin", "hr", "employee"] },
+      $or: [
+        { deletedAt: null },
+        { deletedAt: { $exists: false } }
+      ]
+    });
 
     // Active staff (those who have attendance this month)
     const activeStaffIds = await Attendance.distinct("userId", {
@@ -61,9 +67,17 @@ const getStaffStats = async (req, res) => {
           ).toFixed(2)
         : 0;
 
-    // Department breakdown
+    // Role breakdown
     const staffByRole = await User.aggregate([
-      { $match: { role: "admin" } },
+      { 
+        $match: { 
+          role: { $in: ["admin", "hr", "employee"] },
+          $or: [
+            { deletedAt: null },
+            { deletedAt: { $exists: false } }
+          ]
+        } 
+      },
       { $group: { _id: "$role", count: { $sum: 1 } } },
     ]);
 
@@ -94,11 +108,26 @@ const getStaffStats = async (req, res) => {
 // Add Staff
 const addStaff = async (req, res) => {
   try {
-    if (req.user.role !== 'admin') {
-      return res.status(403).json({ success: false, message: 'Admin access only' });
+    if (!['admin', 'hr'].includes(req.user.role)) {
+      return res.status(403).json({ success: false, message: 'Admin/HR access only' });
     }
 
-    const { name, email, phone, address, status } = req.body;
+    const {
+      name,
+      email,
+      phone,
+      address,
+      status,
+      systemRole,
+      role,
+      department,
+      designation,
+      dateOfJoining,
+      reportingTo,
+      employeeType,
+      salaryStructure,
+      documents
+    } = req.body;
 
     if (!name || !email || !phone) {
       return res.status(400).json({ success: false, message: 'Name, email and phone are required' });
@@ -113,16 +142,25 @@ const addStaff = async (req, res) => {
     const salt = await bcrypt.genSalt(10);
     const hashedPassword = await bcrypt.hash(tempPassword, salt);
 
+    const finalRole = systemRole || role || 'employee';
+
     const user = await User.create({
       name,
       email,
       password: hashedPassword,
       phone: phone || '',
       address: address || '',
-      role: 'admin',
+      role: finalRole,
       isTemp: status === 'Inactive',
       status: status === 'Inactive' ? 'inactive' : 'active',
       tempExpiry: status === 'Inactive' ? new Date(Date.now() + 7 * 24 * 60 * 60 * 1000) : null,
+      department: department || '',
+      designation: designation || '',
+      dateOfJoining: dateOfJoining ? new Date(dateOfJoining) : null,
+      reportingTo: reportingTo || null,
+      employeeType: employeeType || 'full_time',
+      salaryStructure: salaryStructure || {},
+      documents: documents || {}
     });
 
     const dashboardLink = 'http://localhost:8080/login';
@@ -137,6 +175,13 @@ const addStaff = async (req, res) => {
       role: user.role,
       status: user.status,
       createdAt: user.createdAt,
+      department: user.department,
+      designation: user.designation,
+      dateOfJoining: user.dateOfJoining,
+      reportingTo: user.reportingTo,
+      employeeType: user.employeeType,
+      salaryStructure: user.salaryStructure,
+      documents: user.documents,
     };
 
     res.status(201).json({
@@ -153,18 +198,18 @@ const addStaff = async (req, res) => {
 // Get All Staff
 const getAllStaff = async (req, res) => {
   try {
-    if (req.user.role !== 'admin') {
-      return res.status(403).json({ success: false, message: 'Admin access only' });
+    if (!['admin', 'hr'].includes(req.user.role)) {
+      return res.status(403).json({ success: false, message: 'Admin/HR access only' });
     }
 
     const staff = await User.find({
-      role: 'admin',
+      role: { $in: ['admin', 'hr', 'employee'] },
       $or: [
         { deletedAt: null },
         { deletedAt: { $exists: false } }
       ]
     })
-      .select('name email phone address role status isTemp createdAt')
+      .select('name email phone address role status isTemp createdAt department designation dateOfJoining reportingTo employeeType salaryStructure documents')
       .lean()
       .sort({ createdAt: -1 });
 
@@ -177,8 +222,15 @@ const getAllStaff = async (req, res) => {
       address: s.address || '',
       role: s.role,
       status: s.status === 'inactive' || s.isTemp ? 'Inactive' : 'Active',
-      joined: new Date(s.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }),
+      joined: s.dateOfJoining ? new Date(s.dateOfJoining).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : new Date(s.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }),
       createdAt: s.createdAt,
+      department: s.department || '',
+      designation: s.designation || '',
+      dateOfJoining: s.dateOfJoining || null,
+      reportingTo: s.reportingTo || null,
+      employeeType: s.employeeType || 'full_time',
+      salaryStructure: s.salaryStructure || {},
+      documents: s.documents || {},
     }));
 
     res.json({
@@ -194,17 +246,17 @@ const getAllStaff = async (req, res) => {
 // Get Staff By ID
 const getStaffById = async (req, res) => {
   try {
-    if (req.user.role !== 'admin') {
-      return res.status(403).json({ success: false, message: 'Admin access only' });
+    if (!['admin', 'hr'].includes(req.user.role)) {
+      return res.status(403).json({ success: false, message: 'Admin/HR access only' });
     }
 
     const { id } = req.params;
 
     const user = await User.findById(id)
-      .select('name email phone address role status isTemp createdAt')
+      .select('name email phone address role status isTemp createdAt department designation dateOfJoining reportingTo employeeType salaryStructure documents')
       .lean();
 
-    if (!user || user.role !== 'admin') {
+    if (!user || !['admin', 'hr', 'employee'].includes(user.role)) {
       return res.status(404).json({ success: false, message: 'Staff not found' });
     }
 
@@ -218,8 +270,15 @@ const getStaffById = async (req, res) => {
         address: user.address || '',
         role: user.role,
         status: user.status === 'inactive' || user.isTemp ? 'Inactive' : 'Active',
-        joined: new Date(user.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }),
+        joined: user.dateOfJoining ? new Date(user.dateOfJoining).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : new Date(user.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }),
         createdAt: user.createdAt,
+        department: user.department || '',
+        designation: user.designation || '',
+        dateOfJoining: user.dateOfJoining || null,
+        reportingTo: user.reportingTo || null,
+        employeeType: user.employeeType || 'full_time',
+        salaryStructure: user.salaryStructure || {},
+        documents: user.documents || {},
       },
     });
   } catch (error) {
@@ -231,12 +290,27 @@ const getStaffById = async (req, res) => {
 // Update Staff
 const updateStaff = async (req, res) => {
   try {
-    if (req.user.role !== 'admin') {
-      return res.status(403).json({ success: false, message: 'Admin access only' });
+    if (!['admin', 'hr'].includes(req.user.role)) {
+      return res.status(403).json({ success: false, message: 'Admin/HR access only' });
     }
 
     const { id } = req.params;
-    const { name, email, phone, address, status } = req.body;
+    const {
+      name,
+      email,
+      phone,
+      address,
+      status,
+      systemRole,
+      role,
+      department,
+      designation,
+      dateOfJoining,
+      reportingTo,
+      employeeType,
+      salaryStructure,
+      documents
+    } = req.body;
 
     if (email) {
       const existing = await User.findOne({
@@ -261,14 +335,23 @@ const updateStaff = async (req, res) => {
       updateData.isTemp = status === 'Inactive';
       updateData.status = status === 'Inactive' ? 'inactive' : 'active';
     }
+    const finalRole = systemRole || role;
+    if (finalRole) updateData.role = finalRole;
+    if (department !== undefined) updateData.department = department;
+    if (designation !== undefined) updateData.designation = designation;
+    if (dateOfJoining !== undefined) updateData.dateOfJoining = dateOfJoining ? new Date(dateOfJoining) : null;
+    if (reportingTo !== undefined) updateData.reportingTo = reportingTo || null;
+    if (employeeType !== undefined) updateData.employeeType = employeeType;
+    if (salaryStructure !== undefined) updateData.salaryStructure = salaryStructure;
+    if (documents !== undefined) updateData.documents = documents;
 
     const user = await User.findByIdAndUpdate(
       id,
       updateData,
       { new: true, runValidators: true }
-    ).select('name email phone address role status isTemp createdAt');
+    ).select('name email phone address role status isTemp createdAt department designation dateOfJoining reportingTo employeeType salaryStructure documents');
 
-    if (!user || user.role !== 'admin') {
+    if (!user || !['admin', 'hr', 'employee'].includes(user.role)) {
       return res.status(404).json({ success: false, message: 'Staff not found' });
     }
 
@@ -283,8 +366,15 @@ const updateStaff = async (req, res) => {
         address: user.address || '',
         role: user.role,
         status: user.status === 'inactive' || user.isTemp ? 'Inactive' : 'Active',
-        joined: new Date(user.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }),
+        joined: user.dateOfJoining ? new Date(user.dateOfJoining).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : new Date(user.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }),
         createdAt: user.createdAt,
+        department: user.department || '',
+        designation: user.designation || '',
+        dateOfJoining: user.dateOfJoining || null,
+        reportingTo: user.reportingTo || null,
+        employeeType: user.employeeType || 'full_time',
+        salaryStructure: user.salaryStructure || {},
+        documents: user.documents || {},
       },
     });
   } catch (error) {
@@ -296,8 +386,8 @@ const updateStaff = async (req, res) => {
 // Delete Staff
 const deleteStaff = async (req, res) => {
   try {
-    if (req.user.role !== 'admin') {
-      return res.status(403).json({ success: false, message: 'Admin access only' });
+    if (!['admin', 'hr'].includes(req.user.role)) {
+      return res.status(403).json({ success: false, message: 'Admin/HR access only' });
     }
 
     const { id } = req.params;
@@ -308,7 +398,7 @@ const deleteStaff = async (req, res) => {
       { new: true }
     ).lean();
 
-    if (!user || user.role !== 'admin') {
+    if (!user || !['admin', 'hr', 'employee'].includes(user.role)) {
       return res.status(404).json({ success: false, message: 'Staff not found' });
     }
 

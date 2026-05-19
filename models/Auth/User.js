@@ -12,7 +12,7 @@ const userSchema = new mongoose.Schema(
     password: { type: String, required: true },
     role: {
       type: String,
-      enum: ["admin", "student"],
+      enum: ["admin", "student", "employee", "hr"],
       default: "student"
     },
     isTemp: {
@@ -42,6 +42,42 @@ const userSchema = new mongoose.Schema(
     profileImage: {
       type: String,
       default: null
+    },
+    department: {
+      type: String,
+      default: ''
+    },
+    designation: {
+      type: String,
+      default: ''
+    },
+    dateOfJoining: {
+      type: Date
+    },
+    reportingTo: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'User'
+    },
+    employeeType: {
+      type: String,
+      default: 'full_time'
+    },
+    salaryStructure: {
+      baseSalary: { type: Number, default: 0 },
+      hra: { type: Number, default: 0 },
+      transport: { type: Number, default: 0 },
+      other: { type: Number, default: 0 },
+      taxDeduction: { type: Number, default: 0 },
+      pf: { type: Number, default: 0 }
+    },
+    documents: {
+      identityProof: { type: String, default: '' },
+      educationalCertificate: { type: String, default: '' },
+      offerLetter: { type: String, default: '' },
+      medicalDocument: { type: String, default: '' }
+    },
+    deletedAt: {
+      type: Date
     }
   },
   { timestamps: true }
