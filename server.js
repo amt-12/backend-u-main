@@ -21,9 +21,32 @@ const app = express();
 app.use(express.json());
 app.use(cookieParser());
 app.use(cors({
-  origin: ["http://localhost:8080", "http://localhost:8082", "http://localhost:8081", "https://unrealstudiozz.com", "https://test.unrealstudiozz.com", "https://admin.unrealstudiozz.com", "http://localhost:8094"],
+  origin: (origin, callback) => {
+    // Allow requests with no origin (mobile apps, curl, etc.)
+    if (!origin) return callback(null, true);
+
+    const allowedOrigins = [
+      "http://localhost:8080",
+      "http://localhost:8081",
+      "http://localhost:8082",
+      "http://localhost:8094",
+      "http://localhost:5173",
+      "http://127.0.0.1:5173",
+      "https://unrealstudiozz.com",
+      "https://test.unrealstudiozz.com",
+      "https://admin.unrealstudiozz.com",
+    ];
+
+    if (allowedOrigins.includes(origin)) return callback(null, true);
+
+    const envAllowed = process.env.CORS;
+    if (envAllowed && origin === envAllowed) return callback(null, true);
+
+    return callback(null, false);
+  },
   credentials: true
 }));
+
 
 app.use(routes);
 

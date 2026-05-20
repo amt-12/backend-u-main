@@ -133,6 +133,14 @@ const addStaff = async (req, res) => {
       return res.status(400).json({ success: false, message: 'Name, email and phone are required' });
     }
 
+    // Normalization: frontend may send identityProof as an array of upload objects.
+    // Schema expects a String.
+    if (documents && Array.isArray(documents.identityProof)) {
+      const first = documents.identityProof[0];
+      documents.identityProof = first?.url || first?.thumbUrl || first?.preview || '';
+    }
+
+
     const existingUser = await User.findOne({ email }).lean();
     if (existingUser) {
       return res.status(400).json({ success: false, message: 'Email already registered' });
@@ -312,7 +320,15 @@ const updateStaff = async (req, res) => {
       documents
     } = req.body;
 
+    // Normalization: frontend may send identityProof as an array of upload objects.
+    // Schema expects a String.
+    if (documents && Array.isArray(documents.identityProof)) {
+      const first = documents.identityProof[0];
+      documents.identityProof = first?.url || first?.thumbUrl || first?.preview || '';
+    }
+
     if (email) {
+
       const existing = await User.findOne({
         email,
         _id: { $ne: id },
