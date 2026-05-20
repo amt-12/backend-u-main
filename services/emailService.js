@@ -41,8 +41,8 @@ async function sendEmail(to, subject, data = {}) {
                   <table width="600" cellpadding="0" cellspacing="0" style="background:#ffffff; border-radius:8px; overflow:hidden; box-shadow:0 4px 20px rgba(0,0,0,0.05);">
                     <!-- Header -->
                     <tr>
-                      <td style="background:linear-gradient(135deg, #0f172a, #1e3a8a); padding:40px; text-align:center; color:#ffffff;">
-                        <h1 style="margin:0; font-size:32px; letter-spacing:1px;">UNREAL</h1>
+                      <td style="background:linear-gradient(135deg, #0f172a, #1e3a8a); padding:30px; text-align:center; color:#ffffff;">
+                        <img src="https://lms-aja.s3.ap-south-1.amazonaws.com/UNREALLOGO-DfmVor3b.webp" alt="UNREAL" style="max-height:80px; width:auto; display:inline-block;" />
                       </td>
                     </tr>
                     <!-- Body -->

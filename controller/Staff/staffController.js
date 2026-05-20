@@ -171,7 +171,7 @@ const addStaff = async (req, res) => {
       documents: documents || {}
     });
 
-    const dashboardLink = 'http://localhost:8080/login';
+    const dashboardLink = 'https://admin.unrealstudiozz.com/';
     await sendStaffWelcomeEmail(email, name, tempPassword, dashboardLink);
 
     const safeUser = {

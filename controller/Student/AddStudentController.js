@@ -43,7 +43,7 @@ const addStudent = async (req, res) => {
 
     // Send welcome email
     const appLink = 'https://play.google.com/store/apps/details?id=com.abhisheksacademy.lmsapp';
-    const dashboardLink = 'http://localhost:8080/login';
+    const dashboardLink = 'https://admin.unrealstudiozz.com/';
     sendStudentWelcomeEmail(email, name, tempPassword, appLink, dashboardLink);
 
     const safeUser = {
