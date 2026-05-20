@@ -1,4 +1,5 @@
 const User = require("../../models/Auth/User");
+const Department = require("../../models/Department");
 const Attendance = require("../../models/Attendance");
 const Leave = require("../../models/Leave");
 const bcrypt = require("bcryptjs");
@@ -428,6 +429,86 @@ const deleteStaff = async (req, res) => {
   }
 };
 
+// Get all unique departments
+const getDepartments = async (req, res) => {
+  try {
+    if (!['admin', 'hr'].includes(req.user.role)) {
+      return res.status(403).json({ success: false, message: 'Admin/HR access only' });
+    }
+
+    const userDepartments = await User.distinct("department", {
+      department: { $ne: "" },
+      role: { $in: ["admin", "hr", "employee"] },
+      $or: [
+        { deletedAt: null },
+        { deletedAt: { $exists: false } }
+      ]
+    });
+
+    const customDepts = await Department.find({}).lean();
+    const customDeptNames = customDepts.map(d => d.name);
+
+    const defaultDepartments = ["Engineering", "HR", "Marketing", "Sales", "Design", "Finance", "Operations"];
+    const uniqueDepartments = Array.from(
+      new Set(
+        [...userDepartments, ...customDeptNames, ...defaultDepartments]
+          .map(d => d.trim())
+          .filter(Boolean)
+      )
+    );
+
+    res.json({
+      success: true,
+      data: uniqueDepartments,
+    });
+  } catch (error) {
+    console.error('Get departments error:', error);
+    res.status(500).json({ success: false, message: 'Server error' });
+  }
+};
+
+// Add a new Department
+const addDepartment = async (req, res) => {
+  try {
+    if (!['admin', 'hr'].includes(req.user.role)) {
+      return res.status(403).json({ success: false, message: 'Admin/HR access only' });
+    }
+
+    const { name, description } = req.body;
+
+    if (!name || !name.trim()) {
+      return res.status(400).json({ success: false, message: 'Department name is required' });
+    }
+
+    const normalizedName = name.trim();
+
+    // Check if it already exists (case-insensitive) in Department model
+    const existingDept = await Department.findOne({
+      name: { $regex: new RegExp(`^${normalizedName}$`, 'i') }
+    });
+
+    if (existingDept) {
+      return res.status(400).json({ success: false, message: 'Department already exists' });
+    }
+
+    // Save to database
+    const newDept = await Department.create({
+      name: normalizedName,
+      description: description || "",
+      createdBy: req.user.userId || req.user.id
+    });
+
+    res.status(201).json({
+      success: true,
+      message: 'Department added successfully',
+      data: newDept
+    });
+  } catch (error) {
+    console.error('Add department error:', error);
+    res.status(500).json({ success: false, message: 'Server error adding department' });
+  }
+};
+
 module.exports = {
   getStaffStats,
   addStaff,
@@ -435,4 +516,6 @@ module.exports = {
   getStaffById,
   updateStaff,
   deleteStaff,
+  getDepartments,
+  addDepartment,
 };

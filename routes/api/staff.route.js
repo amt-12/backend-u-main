@@ -8,9 +8,13 @@ const {
   getStaffById,
   updateStaff,
   deleteStaff,
+  getDepartments,
+  addDepartment,
 } = require("../../controller/Staff/staffController");
 
 router.get("/stats", protect, getStaffStats);
+router.get("/departments", protect, getDepartments);
+router.post("/departments", protect, addDepartment);
 router.post("/", protect, addStaff);
 router.get("/", protect, getAllStaff);
 router.get("/:id", protect, getStaffById);
