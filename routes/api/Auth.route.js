@@ -8,7 +8,7 @@ const register = require("../../controller/Auth/register");
 const login = require("../../controller/Auth/login");
 const verifyOtp = require("../../controller/Auth/verifyOtp");
 const adminLogin = require("../../controller/Auth/adminLogin");
-const { getProfile, updateProfile, deleteProfile, uploadProfileImage } = require("../../controller/Auth/profile");
+const { getProfile, updateProfile, deleteProfile, uploadProfileImage, updatePassword } = require("../../controller/Auth/profile");
 const { getStaffProfile, updateStaffProfile } = require("../../controller/Auth/staffProfile");
 const { protect } = require("../../middleware/authMiddleware");
 
@@ -36,6 +36,7 @@ router.get("/profile", protect, getProfile);
 router.put("/profile", protect, updateProfile);
 router.delete("/profile", protect, deleteProfile);
 router.put("/profile/image", protect, upload.single('image'), uploadProfileImage);
+router.put("/profile/password", protect, updatePassword);
 
 // Staff profile routes
 router.get("/staff/profile", protect, getStaffProfile);

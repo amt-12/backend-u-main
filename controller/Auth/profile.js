@@ -2,6 +2,7 @@ const User = require("../../models/Auth/User");
 const s3Service = require("../../services/s3Service");
 const path = require("path");
 const { unlinkSync } = require("fs");
+const bcrypt = require("bcryptjs");
 
 // Get Profile
 const getProfile = async (req, res) => {
@@ -194,9 +195,46 @@ const uploadProfileImage = async (req, res) => {
   }
 };
 
+// Update Password
+const updatePassword = async (req, res) => {
+  try {
+    const { currentPassword, newPassword } = req.body;
+    const userId = req.user.userId || req.user._id;
+
+    if (!currentPassword || !newPassword) {
+      return res.status(400).json({ error: "Current password and new password are required" });
+    }
+
+    if (newPassword.length < 6) {
+      return res.status(400).json({ error: "New password must be at least 6 characters long" });
+    }
+
+    const user = await User.findById(userId);
+    if (!user || user.deletedAt) {
+      return res.status(404).json({ error: "User not found" });
+    }
+
+    const isMatch = await bcrypt.compare(currentPassword, user.password);
+    if (!isMatch) {
+      return res.status(400).json({ error: "Incorrect current password" });
+    }
+
+    // Hash the new password
+    const salt = await bcrypt.genSalt(10);
+    user.password = await bcrypt.hash(newPassword, salt);
+    await user.save();
+
+    res.json({ message: "Password updated successfully" });
+  } catch (error) {
+    console.error("Update password error:", error);
+    res.status(500).json({ error: "Server error updating password" });
+  }
+};
+
 module.exports = {
   getProfile,
   updateProfile,
   deleteProfile,
   uploadProfileImage,
+  updatePassword,
 };
