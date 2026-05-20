@@ -134,11 +134,26 @@ const addStaff = async (req, res) => {
       return res.status(400).json({ success: false, message: 'Name, email and phone are required' });
     }
 
-    // Normalization: frontend may send identityProof as an array of upload objects.
-    // Schema expects a String.
-    if (documents && Array.isArray(documents.identityProof)) {
-      const first = documents.identityProof[0];
-      documents.identityProof = first?.url || first?.thumbUrl || first?.preview || '';
+    // Normalization helper for documents
+    const normalizeDocument = (doc) => {
+      if (!doc) return '';
+      if (typeof doc === 'string') return doc;
+      if (Array.isArray(doc)) {
+        if (doc.length === 0) return '';
+        const first = doc[0];
+        return first?.url || first?.thumbUrl || first?.preview || '';
+      }
+      if (typeof doc === 'object') {
+        return doc.url || '';
+      }
+      return '';
+    };
+
+    if (documents) {
+      const docKeys = ['identityProof', 'educationalCertificate', 'offerLetter', 'medicalDocument'];
+      docKeys.forEach(key => {
+        documents[key] = normalizeDocument(documents[key]);
+      });
     }
 
 
@@ -321,11 +336,26 @@ const updateStaff = async (req, res) => {
       documents
     } = req.body;
 
-    // Normalization: frontend may send identityProof as an array of upload objects.
-    // Schema expects a String.
-    if (documents && Array.isArray(documents.identityProof)) {
-      const first = documents.identityProof[0];
-      documents.identityProof = first?.url || first?.thumbUrl || first?.preview || '';
+    // Normalization helper for documents
+    const normalizeDocument = (doc) => {
+      if (!doc) return '';
+      if (typeof doc === 'string') return doc;
+      if (Array.isArray(doc)) {
+        if (doc.length === 0) return '';
+        const first = doc[0];
+        return first?.url || first?.thumbUrl || first?.preview || '';
+      }
+      if (typeof doc === 'object') {
+        return doc.url || '';
+      }
+      return '';
+    };
+
+    if (documents) {
+      const docKeys = ['identityProof', 'educationalCertificate', 'offerLetter', 'medicalDocument'];
+      docKeys.forEach(key => {
+        documents[key] = normalizeDocument(documents[key]);
+      });
     }
 
     if (email) {
