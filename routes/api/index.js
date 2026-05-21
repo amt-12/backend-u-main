@@ -22,6 +22,7 @@ const bookCallRoutes = require("./bookCall.route");
 const anyApplyInternshipRoutes = require("./anyApplyInternship.route");
 const brandLeadRoutes = require("./brandLeads.route");
 const payrollRoutes = require('./payroll.route');
+const credentialRoutes = require("./credential.route");
 
 const router = express.Router();
 
@@ -47,6 +48,7 @@ router.use("/bookCall", bookCallRoutes);
 router.use("/internship-any", anyApplyInternshipRoutes);
 router.use("/brand-lead", brandLeadRoutes);
 router.use('/payroll', payrollRoutes);
+router.use("/credentials", credentialRoutes);
 
 module.exports = router;
 
