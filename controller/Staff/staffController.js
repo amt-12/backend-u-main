@@ -4,6 +4,7 @@ const Attendance = require("../../models/Attendance");
 const Leave = require("../../models/Leave");
 const bcrypt = require("bcryptjs");
 const dayjs = require("dayjs");
+const mongoose = require("mongoose");
 const { sendStaffWelcomeEmail } = require("../../services/emailService");
 
 // Get Staff Stats
@@ -233,7 +234,7 @@ const getAllStaff = async (req, res) => {
         { deletedAt: { $exists: false } }
       ]
     })
-      .select('name email phone address role status isTemp createdAt department designation dateOfJoining reportingTo employeeType salaryStructure documents')
+      .select('name email phone address role status isTemp createdAt department designation dateOfJoining reportingTo employeeType salaryStructure documents moduleVisibility permissions')
       .lean()
       .sort({ createdAt: -1 });
 
@@ -255,6 +256,8 @@ const getAllStaff = async (req, res) => {
       employeeType: s.employeeType || 'full_time',
       salaryStructure: s.salaryStructure || {},
       documents: s.documents || {},
+      moduleVisibility: s.moduleVisibility || [],
+      permissions: s.permissions || []
     }));
 
     res.json({
@@ -277,7 +280,7 @@ const getStaffById = async (req, res) => {
     const { id } = req.params;
 
     const user = await User.findById(id)
-      .select('name email phone address role status isTemp createdAt department designation dateOfJoining reportingTo employeeType salaryStructure documents')
+      .select('name email phone address role status isTemp createdAt department designation dateOfJoining reportingTo employeeType salaryStructure documents moduleVisibility permissions')
       .lean();
 
     if (!user || !['admin', 'hr', 'employee'].includes(user.role)) {
@@ -303,6 +306,8 @@ const getStaffById = async (req, res) => {
         employeeType: user.employeeType || 'full_time',
         salaryStructure: user.salaryStructure || {},
         documents: user.documents || {},
+        moduleVisibility: user.moduleVisibility || [],
+        permissions: user.permissions || [],
       },
     });
   } catch (error) {
@@ -318,7 +323,15 @@ const updateStaff = async (req, res) => {
       return res.status(403).json({ success: false, message: 'Admin/HR access only' });
     }
 
-    const { id } = req.params;
+    // Extract staff ID from URL param or request body
+    const id = req.params.id || req.body.id;
+    if (!id) {
+      return res.status(400).json({ success: false, message: 'Staff ID is required' });
+    }
+    // Validate ObjectId
+    if (!id || !mongoose.Types.ObjectId.isValid(id)) {
+      return res.status(400).json({ success: false, message: 'Invalid staff ID' });
+    }
     const {
       name,
       email,
@@ -333,7 +346,9 @@ const updateStaff = async (req, res) => {
       reportingTo,
       employeeType,
       salaryStructure,
-      documents
+      documents,
+      moduleVisibility,
+      permissions,
     } = req.body;
 
     // Normalization helper for documents
@@ -391,12 +406,15 @@ const updateStaff = async (req, res) => {
     if (employeeType !== undefined) updateData.employeeType = employeeType;
     if (salaryStructure !== undefined) updateData.salaryStructure = salaryStructure;
     if (documents !== undefined) updateData.documents = documents;
+// Add permissions if provided
+    if (permissions !== undefined) updateData.permissions = permissions;
+
 
     const user = await User.findByIdAndUpdate(
       id,
       updateData,
       { new: true, runValidators: true }
-    ).select('name email phone address role status isTemp createdAt department designation dateOfJoining reportingTo employeeType salaryStructure documents');
+    ).select('name email phone address role status isTemp createdAt department designation dateOfJoining reportingTo employeeType salaryStructure documents moduleVisibility permissions');
 
     if (!user || !['admin', 'hr', 'employee'].includes(user.role)) {
       return res.status(404).json({ success: false, message: 'Staff not found' });
@@ -422,6 +440,8 @@ const updateStaff = async (req, res) => {
         employeeType: user.employeeType || 'full_time',
         salaryStructure: user.salaryStructure || {},
         documents: user.documents || {},
+        moduleVisibility: user.moduleVisibility || [],
+        permissions: user.permissions || [],
       },
     });
   } catch (error) {

@@ -6,7 +6,7 @@ const getStaffProfile = async (req, res) => {
   try {
     const userId = req.user.userId || req.user._id;
     const user = await User.findById(userId)
-      .select("name email phone address profileImage role status createdAt department designation dateOfJoining reportingTo employeeType salaryStructure documents")
+      .select("name email phone address profileImage role status createdAt department designation dateOfJoining reportingTo employeeType salaryStructure documents moduleVisibility permissions")
       .lean();
 
     if (!user) {
@@ -46,6 +46,8 @@ const getStaffProfile = async (req, res) => {
         employeeType: user.employeeType || "full_time",
         salaryStructure: user.salaryStructure || {},
         documents: user.documents || {},
+        moduleVisibility: user.moduleVisibility || [],
+        permissions: user.permissions || [],
       },
     });
   } catch (error) {
@@ -57,18 +59,18 @@ const getStaffProfile = async (req, res) => {
 // Update Staff Profile
 const updateStaffProfile = async (req, res) => {
   try {
-    const { name, phone, address } = req.body;
+    const { name, phone, address, moduleVisibility } = req.body;
 
     const updateData = {};
     if (name) updateData.name = name;
     if (phone !== undefined) updateData.phone = phone;
-    if (address !== undefined) updateData.address = address;
+    if (moduleVisibility !== undefined) updateData.moduleVisibility = moduleVisibility;
 
     const userId = req.user.userId || req.user._id;
     const user = await User.findByIdAndUpdate(userId, updateData, {
       new: true,
       runValidators: true,
-    }).select("name email phone address profileImage role status createdAt department designation dateOfJoining reportingTo employeeType salaryStructure documents");
+    }).select("name email phone address profileImage role status createdAt department designation dateOfJoining reportingTo employeeType salaryStructure documents moduleVisibility permissions")
 
     if (!user || user.deletedAt) {
       return res.status(404).json({ error: "User not found" });
@@ -98,6 +100,8 @@ const updateStaffProfile = async (req, res) => {
         employeeType: user.employeeType || "full_time",
         salaryStructure: user.salaryStructure || {},
         documents: user.documents || {},
+        moduleVisibility: user.moduleVisibility || [],
+        permissions: user.permissions || [],
       },
     });
   } catch (error) {
