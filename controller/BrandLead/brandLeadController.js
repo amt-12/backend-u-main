@@ -5,9 +5,9 @@ const dayjs = require("dayjs");
 // Get all brand leads with filtering and search
 const getAllBrandLeads = async (req, res) => {
   try {
-    if (!["admin", "hr"].includes(req.user.role)) {
-      return res.status(403).json({ success: false, message: "Access denied" });
-    }
+    // if (!["admin", "hr"].includes(req.user.role)) {
+    //   return res.status(403).json({ success: false, message: "Access denied" });
+    // }
 
     const { status, search, assignedTo } = req.query;
 
@@ -50,9 +50,9 @@ const getAllBrandLeads = async (req, res) => {
 // Get single brand lead by ID
 const getBrandLeadById = async (req, res) => {
   try {
-    if (!["admin", "hr"].includes(req.user.role)) {
-      return res.status(403).json({ success: false, message: "Access denied" });
-    }
+    // if (!["admin", "hr"].includes(req.user.role)) {
+    //   return res.status(403).json({ success: false, message: "Access denied" });
+    // }
 
     const { id } = req.params;
     const lead = await BrandLead.findById(id)
@@ -78,9 +78,9 @@ const getBrandLeadById = async (req, res) => {
 // Create a new brand lead
 const createBrandLead = async (req, res) => {
   try {
-    if (!["admin", "hr"].includes(req.user.role)) {
-      return res.status(403).json({ success: false, message: "Access denied" });
-    }
+    // if (!["admin", "hr"].includes(req.user.role)) {
+    //   return res.status(403).json({ success: false, message: "Access denied" });
+    // }
 
     const {
       brandName,
@@ -143,9 +143,9 @@ const createBrandLead = async (req, res) => {
 // Update an existing brand lead
 const updateBrandLead = async (req, res) => {
   try {
-    if (!["admin", "hr"].includes(req.user.role)) {
-      return res.status(403).json({ success: false, message: "Access denied" });
-    }
+    // if (!["admin", "hr"].includes(req.user.role)) {
+    //   return res.status(403).json({ success: false, message: "Access denied" });
+    // }
 
     const { id } = req.params;
     const updateFields = req.body;
@@ -185,9 +185,9 @@ const updateBrandLead = async (req, res) => {
 // Delete brand lead
 const deleteBrandLead = async (req, res) => {
   try {
-    if (!["admin", "hr"].includes(req.user.role)) {
-      return res.status(403).json({ success: false, message: "Access denied" });
-    }
+    // if (!["admin", "hr"].includes(req.user.role)) {
+    //   return res.status(403).json({ success: false, message: "Access denied" });
+    // }
 
     const { id } = req.params;
     const deletedLead = await BrandLead.findByIdAndDelete(id);
@@ -209,9 +209,9 @@ const deleteBrandLead = async (req, res) => {
 // Add a follow-up log to a brand lead
 const addFollowUp = async (req, res) => {
   try {
-    if (!["admin", "hr"].includes(req.user.role)) {
-      return res.status(403).json({ success: false, message: "Access denied" });
-    }
+    // if (!["admin", "hr"].includes(req.user.role)) {
+    //   return res.status(403).json({ success: false, message: "Access denied" });
+    // }
 
     const { id } = req.params;
     const { notes, nextFollowUpDate, status } = req.body;
