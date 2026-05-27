@@ -1,32 +1,82 @@
-const getMenu = (req, res) => {
-  // Hardcoded menu configuration mirroring frontend AdminLayout
-  const menu = [
-    {
-      key: 'human-resource',
-      icon: '<TeamOutlined />',
-      label: 'Human Resource',
-      children: [
-        { key: '/payroll', icon: '<DollarCircleOutlined />', label: '<Link to="/payroll">Payroll</Link>' },
-        { key: '/attendance', icon: '<ClockCircleOutlined />', label: '<Link to="/attendance">Attendance</Link>' },
-        { key: '/leave-management', icon: '<CalendarOutlined />', label: '<Link to="/leave-management">Leave Management</Link>' },
-        { key: '/staff', icon: '<UserAddOutlined />', label: '<Link to="/staff">Staff</Link>' },
-        { key: '/manage-staff', icon: '<TeamOutlined />', label: '<Link to="/manage-staff">Manage Staff</Link>' },
-        { key: '/leads', icon: '<UserAddOutlined />', label: '<Link to="/leads">Leads & Bookings</Link>' },
-        { key: '/brand-onboarding', icon: '<ShopOutlined />', label: '<Link to="/brand-onboarding">Brand Onboarding</Link>' },
-      ],
-    },
-    {
-      key: 'system',
-      icon: '<SettingOutlined />',
-      label: 'System',
-      children: [
-        { key: '/access', icon: '<KeyOutlined />', label: '<Link to="/access">Access</Link>' },
-        { key: '/credentials', icon: '<KeyOutlined />', label: '<Link to="/credentials">Credentials Manager</Link>' },
-        { key: '/settings', icon: '<SettingOutlined />', label: '<Link to="/settings">Settings</Link>' },
-      ],
-    },
-  ];
-  res.json({ success: true, data: menu });
-};
+// src/controller/Menu/menuController.js
+// This controller returns the sidebar menu configuration used across the admin panel.
+// It mirrors the structure defined in the frontend AdminLayout component.
 
+// NOTE: In a real application this would likely be driven by a database or a config file.
+// For now we return a static JSON payload matching the user's request.
+
+const getMenu = async (req, res) => {
+  try {
+    const menu = [
+      {
+        key: 'human-resource',
+        icon: 'TeamOutlined',
+        label: 'Human Resource',
+        children: [
+          {
+            key: '/payroll',
+            icon: 'DollarCircleOutlined',
+            label: '/payroll',
+          },
+          {
+            key: '/attendance',
+            icon: 'ClockCircleOutlined',
+            label: '/attendance',
+          },
+          {
+            key: '/leave-management',
+            icon: 'CalendarOutlined',
+            label: '/leave-management',
+          },
+          {
+            key: '/staff',
+            icon: 'UserAddOutlined',
+            label: '/staff',
+          },
+          {
+            key: '/manage-staff',
+            icon: 'TeamOutlined',
+            label: '/manage-staff',
+          },
+          {
+            key: '/leads',
+            icon: 'UserAddOutlined',
+            label: '/leads',
+          },
+          {
+            key: '/brand-onboarding',
+            icon: 'ShopOutlined',
+            label: '/brand-onboarding',
+          },
+        ],
+      },
+      {
+        key: 'system',
+        icon: 'SettingOutlined',
+        label: 'System',
+        children: [
+          {
+            key: '/access',
+            icon: 'KeyOutlined',
+            label: '/access',
+          },
+          {
+            key: '/credentials',
+            icon: 'KeyOutlined',
+            label: '/credentials',
+          },
+          {
+            key: '/settings',
+            icon: 'SettingOutlined',
+            label: '/settings',
+          },
+        ],
+      },
+    ];
+    res.json({ success: true, menu });
+  } catch (error) {
+    console.error('Get menu error:', error);
+    res.status(500).json({ success: false, message: 'Server error retrieving menu' });
+  }
+};
 module.exports = { getMenu };
