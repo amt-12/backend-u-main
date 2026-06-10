@@ -322,7 +322,7 @@ const approveLeave = async (req, res) => {
     const approverId = req.user.userId || req.user._id || req.user.id;
     const { id } = req.params;
 
-    const leave = await Leave.findById(id);
+    const leave = await Leave.findById(id).populate("staffId", "name email role");
 
     if (!leave) {
       return res.status(404).json({
@@ -338,11 +338,26 @@ const approveLeave = async (req, res) => {
       });
     }
 
+    // Check if user is trying to approve their own leave request
+    if (leave.staffId && leave.staffId._id.toString() === approverId.toString()) {
+      return res.status(400).json({
+        success: false,
+        message: "You cannot approve your own leave request",
+      });
+    }
+
+    // Check if HR leave is being approved by someone other than admin
+    if (leave.staffId && leave.staffId.role === 'hr' && req.user.role !== 'admin') {
+      return res.status(403).json({
+        success: false,
+        message: "HR leaves must be approved by admin",
+      });
+    }
+
     leave.status = "approved";
     leave.approvedBy = approverId;
     leave.approvedAt = new Date();
     await leave.save();
-    await leave.populate("staffId", "name email role");
     await leave.populate("approvedBy", "name email");
 
     res.json({
@@ -362,10 +377,11 @@ const rejectLeave = async (req, res) => {
     if (!['admin', 'hr'].includes(req.user.role)) {
       return res.status(403).json({ success: false, message: 'Access denied' });
     }
+    const approverId = req.user.userId || req.user._id || req.user.id;
     const { id } = req.params;
     const { reason } = req.body;
 
-    const leave = await Leave.findById(id);
+    const leave = await Leave.findById(id).populate("staffId", "name email role");
 
     if (!leave) {
       return res.status(404).json({
@@ -381,10 +397,25 @@ const rejectLeave = async (req, res) => {
       });
     }
 
+    // Check if user is trying to reject their own leave request
+    if (leave.staffId && leave.staffId._id.toString() === approverId.toString()) {
+      return res.status(400).json({
+        success: false,
+        message: "You cannot reject your own leave request",
+      });
+    }
+
+    // Check if HR leave is being rejected by someone other than admin
+    if (leave.staffId && leave.staffId.role === 'hr' && req.user.role !== 'admin') {
+      return res.status(403).json({
+        success: false,
+        message: "HR leaves must be rejected by admin",
+      });
+    }
+
     leave.status = "rejected";
     leave.rejectionReason = reason || "Rejected by admin";
     await leave.save();
-    await leave.populate("staffId", "name email role");
 
     res.json({
       success: true,
