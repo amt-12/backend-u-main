@@ -2,10 +2,10 @@ const mongoose = require("mongoose");
 
 const connectDB = async () => {
   try {
-    const mongoUri = "mongodb+srv://amrit0207232_db_user:qK6Vp5GdsmICTsKk@unrealstudioz.pvoc22n.mongodb.net/";
+    const mongoUri = process.env.MONGO_URI;
 
     if (!mongoUri) {
-      throw new Error('Missing environment variable: MONGODB_URI');
+      throw new Error('Missing environment variable: MONGO_URI');
     }
 
     await mongoose.connect(mongoUri);

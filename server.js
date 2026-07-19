@@ -6,12 +6,14 @@ const cookieParser = require("cookie-parser");
 const connectDB = require("./config/db.js");
 const routes = require("./routes");
 const { startReminderCron } = require('./services/reminderService'); // Reminder cron
+const { initWhatsApp } = require('./services/whatsappService');
 
 dotenv.config({ path: './.env' });
 
 
 
 connectDB();
+initWhatsApp();
 
 const http = require('http');
 const socketIo = require('socket.io');
@@ -92,7 +94,7 @@ process.on('SIGINT', () => {
   process.exit(0);
 });
 
-const PORT = process.env.PORT || 5001;
+const PORT = process.env.PORT || 5002;
 
 server.listen(PORT, () => {
   console.log(`🚀 Server + Socket.IO running on port ${PORT}`);

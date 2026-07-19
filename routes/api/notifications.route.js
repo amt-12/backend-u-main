@@ -14,7 +14,9 @@ router.get('/', protect, getNotifications);
 router.get('/unread-count', protect, getUnreadCount);
 router.post('/', protect, createNotification);
 router.patch('/:id/read', protect, markAsRead);
+router.post('/:id/read', protect, markAsRead);
 router.patch('/mark-all-read', protect, markAllRead);
+router.post('/read-all', protect, markAllRead);
 router.delete('/:id', protect, deleteNotification);
 router.post('/:id/send', protect, sendNotification);
 

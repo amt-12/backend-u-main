@@ -9,6 +9,7 @@ const {
   addFollowUp,
   getClientBrandLead,
   submitClientBrandLead,
+  reOnboardBrandLead,
 } = require("../../controller/BrandLead/brandLeadController");
 
 const router = express.Router();
@@ -26,5 +27,6 @@ router.get("/:id", getBrandLeadById);
 router.put("/:id", updateBrandLead);
 router.delete("/:id", deleteBrandLead);
 router.post("/:id/follow-up", addFollowUp);
+router.post("/:id/re-onboard", reOnboardBrandLead);
 
 module.exports = router;

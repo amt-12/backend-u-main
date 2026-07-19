@@ -32,11 +32,19 @@ const brandLeadSchema = new mongoose.Schema(
     },
     status: {
       type: String,
-      enum: ["new", "contacted", "proposal_sent", "negotiation", "onboarded", "lost"],
-      default: "new",
+      enum: ["pending", "cancelled", "onboarded", "moved_to_operations", "new", "contacted", "proposal_sent", "negotiation", "lost"],
+      default: "pending",
       index: true,
     },
     dealValue: {
+      type: Number,
+      default: 0,
+    },
+    estimatedDealValue: {
+      type: Number,
+      default: 0,
+    },
+    finalDealValue: {
       type: Number,
       default: 0,
     },
@@ -49,6 +57,11 @@ const brandLeadSchema = new mongoose.Schema(
       default: "",
     },
     instagram: {
+      type: String,
+      trim: true,
+      default: "",
+    },
+    whatsAppGroupLink: {
       type: String,
       trim: true,
       default: "",
@@ -103,6 +116,39 @@ const brandLeadSchema = new mongoose.Schema(
       type: mongoose.Schema.Types.ObjectId,
       ref: "User",
       default: null,
+    },
+    deliverables: {
+      branding: {
+        checked: { type: Boolean, default: false },
+        count: { type: Number, default: 0 }
+      },
+      ugc: {
+        checked: { type: Boolean, default: false },
+        count: { type: Number, default: 0 }
+      },
+      reels: {
+        checked: { type: Boolean, default: false },
+        count: { type: Number, default: 0 }
+      },
+      posts: {
+        checked: { type: Boolean, default: false },
+        count: { type: Number, default: 0 }
+      }
+    },
+    categoryData: {
+      type: Map,
+      of: new mongoose.Schema({
+        estimatedDealValue: { type: Number, default: 0 },
+        finalDealValue: { type: Number, default: 0 },
+        assignedTo: { type: mongoose.Schema.Types.ObjectId, ref: 'User', default: null },
+        status: { type: String, enum: ["pending", "cancelled", "onboarded", "moved_to_operations", "new", "contacted", "proposal_sent", "negotiation", "lost"], default: "pending" },
+        followUpDate: { type: Date, default: null },
+      }, { _id: false }),
+      default: {}
+    },
+    onboardedDates: {
+      type: [Date],
+      default: [],
     },
   },
   { timestamps: true }

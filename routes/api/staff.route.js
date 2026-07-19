@@ -10,11 +10,19 @@ const {
   deleteStaff,
   getDepartments,
   addDepartment,
+  deleteDepartment,
+  getStaffForDropdown,
 } = require("../../controller/Staff/staffController");
+
+const taskRoutes = require("./task.route");
 
 router.get("/stats", protect, getStaffStats);
 router.get("/departments", protect, getDepartments);
 router.post("/departments", protect, addDepartment);
+router.delete("/departments/:name", protect, deleteDepartment);
+router.get("/dropdown", protect, getStaffForDropdown);
+router.use("/tasks", taskRoutes);
+
 router.post("/", protect, addStaff);
 router.get("/", protect, getAllStaff);
 router.get("/:id", protect, getStaffById);

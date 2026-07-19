@@ -3,7 +3,7 @@ const College = require('../../models/College');
 const createCollege = async (req, res) => {
   try {
     // Auth check (protect middleware + admin role)
-    if (req.user.role !== 'admin') {
+    if (!['super_admin', 'admin', 'manager'].includes(req.user.role)) {
       return res.status(403).json({ success: false, error: 'Admin access only' });
     }
 

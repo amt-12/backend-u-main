@@ -30,3 +30,10 @@ temp/
 
 # misc
 coverage/
+# whatsapp web js
+.wwebjs_auth/
+.wwebjs_auth_test/
+.wwebjs_cache/
+
+# local scratch files
+scratch/

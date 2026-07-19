@@ -14,9 +14,9 @@ const getMenu = async (req, res) => {
         label: 'Human Resource',
         children: [
           {
-            key: '/payroll',
-            icon: 'DollarCircleOutlined',
-            label: '/payroll',
+            key: '/staff-management',
+            icon: 'TeamOutlined',
+            label: '/staff-management',
           },
           {
             key: '/attendance',
@@ -29,15 +29,22 @@ const getMenu = async (req, res) => {
             label: '/leave-management',
           },
           {
-            key: '/staff',
-            icon: 'UserAddOutlined',
-            label: '/staff',
+            key: '/performance-credits',
+            icon: 'RiseOutlined',
+            label: '/performance-credits',
           },
           {
-            key: '/manage-staff',
-            icon: 'TeamOutlined',
-            label: '/manage-staff',
+            key: '/payroll-finance',
+            icon: 'DollarCircleOutlined',
+            label: '/payroll-finance',
           },
+        ],
+      },
+      {
+        key: 'clients-crm',
+        icon: 'AppstoreOutlined',
+        label: 'Clients & CRM',
+        children: [
           {
             key: '/leads',
             icon: 'UserAddOutlined',
@@ -48,6 +55,56 @@ const getMenu = async (req, res) => {
             icon: 'ShopOutlined',
             label: '/brand-onboarding',
           },
+          {
+            key: '/onboarded-clients',
+            icon: 'CheckCircleOutlined',
+            label: '/onboarded-clients',
+          },
+          {
+            key: '/client-followups',
+            icon: 'ClockCircleOutlined',
+            label: '/client-followups',
+          },
+        ],
+      },
+      {
+        key: 'client-operations',
+        icon: 'ApartmentOutlined',
+        label: 'Client Operations',
+        children: [
+          {
+            key: '/deliverables',
+            icon: 'BookOutlined',
+            label: '/deliverables',
+          },
+          {
+            key: '/task-management',
+            icon: 'CheckSquareOutlined',
+            label: '/task-management',
+          },
+          {
+            key: '/posting',
+            icon: 'RocketOutlined',
+            label: '/posting',
+          },
+          {
+            key: '/seo-manager',
+            icon: 'CalendarOutlined',
+            label: '/seo-manager',
+          },
+        ],
+      },
+
+      {
+        key: 'reports-analytics',
+        icon: 'NotificationOutlined',
+        label: 'Reports & Analytics',
+        children: [
+          {
+            key: '/employee-performance',
+            icon: 'FileTextOutlined',
+            label: '/employee-performance',
+          },
         ],
       },
       {
@@ -57,7 +114,7 @@ const getMenu = async (req, res) => {
         children: [
           {
             key: '/access',
-            icon: 'KeyOutlined',
+            icon: 'SafetyOutlined',
             label: '/access',
           },
           {
@@ -72,6 +129,7 @@ const getMenu = async (req, res) => {
           },
         ],
       },
+
     ];
     res.json({ success: true, menu });
   } catch (error) {

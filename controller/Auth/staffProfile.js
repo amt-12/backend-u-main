@@ -19,7 +19,7 @@ const getStaffProfile = async (req, res) => {
     }
 
     // Check if user is staff/admin
-    if (!['admin', 'hr', 'employee'].includes(user.role)) {
+    if (!['super_admin', 'admin', 'manager', 'executive'].includes(user.role)) {
       return res.status(403).json({ error: "Access denied. Staff only." });
     }
 
@@ -76,7 +76,7 @@ const updateStaffProfile = async (req, res) => {
       return res.status(404).json({ error: "User not found" });
     }
 
-    if (!['admin', 'hr', 'employee'].includes(user.role)) {
+    if (!['super_admin', 'admin', 'manager', 'executive'].includes(user.role)) {
       return res.status(403).json({ error: "Access denied. Staff only." });
     }
 

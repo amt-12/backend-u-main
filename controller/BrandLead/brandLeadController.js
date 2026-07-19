@@ -2,6 +2,136 @@ const BrandLead = require("../../models/BrandLead");
 const User = require("../../models/Auth/User");
 const dayjs = require("dayjs");
 
+const updateCategoryDataForOnboarding = (lead, selectedCategory) => {
+  if (lead.status !== 'onboarded') return;
+
+  let onboardedCategory = selectedCategory;
+
+  if (!onboardedCategory) {
+    const requirements = lead.requirements || [];
+    // Determine default based on requirements
+    for (const req of requirements) {
+      const l = req.toLowerCase().trim();
+      if (l.includes('website') || l.includes('web') || l.includes('deelopemnt') || l.includes('develop')) {
+        onboardedCategory = 'website_development';
+        break;
+      } else if (l.includes('reels') || l.includes('tiktok') || l.includes('short form') || l.includes('shoot') || l.includes('production')) {
+        onboardedCategory = 'ad_production';
+        break;
+      } else if (l.includes('digital') || l.includes('digi') || l.includes('digtal') || l.includes('marketing') || l.includes('ads') || l.includes('seo') || l.includes('branding') || l.includes('influencer') || l.includes('copywriting') || l.includes('content')) {
+        onboardedCategory = 'digital_marketing';
+        break;
+      }
+    }
+  }
+
+  if (!onboardedCategory) {
+    onboardedCategory = 'digital_marketing';
+  }
+
+  // Update categoryData for ONLY the selected onboarded category
+  if (!lead.categoryData) {
+    lead.categoryData = new Map();
+  }
+
+  const current = lead.categoryData.get ? lead.categoryData.get(onboardedCategory) : lead.categoryData[onboardedCategory];
+  const currentObj = current && typeof current.toObject === 'function' ? current.toObject() : current;
+  
+  try {
+    const fs = require('fs');
+    const path = require('path');
+    fs.appendFileSync(
+      path.join(__dirname, '../../scratch/debug.log'),
+      `In updateCategoryDataForOnboarding:\nonboardedCategory: ${onboardedCategory}\ncurrentObj: ${JSON.stringify(currentObj)}\ntop-level finalDealValue: ${lead.finalDealValue}\ntop-level dealValue: ${lead.dealValue}\n`
+    );
+  } catch (e) {}
+
+  const updatedCat = { 
+    ...(currentObj || {}), 
+    status: 'onboarded',
+    estimatedDealValue: (currentObj && currentObj.estimatedDealValue !== undefined && currentObj.estimatedDealValue !== 0) ? currentObj.estimatedDealValue : (lead.estimatedDealValue || lead.dealValue || 0),
+    finalDealValue: (currentObj && currentObj.finalDealValue !== undefined && currentObj.finalDealValue !== 0) ? currentObj.finalDealValue : (lead.finalDealValue || lead.dealValue || 0),
+    assignedTo: (currentObj && currentObj.assignedTo) ? currentObj.assignedTo : (lead.assignedTo || null)
+  };
+  
+  try {
+    const fs = require('fs');
+    const path = require('path');
+    fs.appendFileSync(
+      path.join(__dirname, '../../scratch/debug.log'),
+      `updatedCat calculated: ${JSON.stringify(updatedCat)}\n`
+    );
+  } catch (e) {}
+
+  if (lead.categoryData.set) {
+    lead.categoryData.set(onboardedCategory, updatedCat);
+  } else {
+    lead.categoryData[onboardedCategory] = updatedCat;
+  }
+  lead.markModified('categoryData');
+
+  // Set onboardedDates
+  if (!lead.onboardedDates) {
+    lead.onboardedDates = [];
+  }
+  if (lead.onboardedDates.length === 0) {
+    lead.onboardedDates.push(new Date());
+  }
+
+  // Set top-level assignedTo if not set
+  if (!lead.assignedTo && updatedCat.assignedTo) {
+    lead.assignedTo = updatedCat.assignedTo;
+  }
+
+  // Now, calculate if all required categories are onboarded
+  const requirements = lead.requirements || [];
+  const requiredCategories = [];
+  requirements.forEach(req => {
+    const l = req.toLowerCase().trim();
+    if (l.includes('website') || l.includes('web') || l.includes('deelopemnt') || l.includes('develop')) {
+      if (!requiredCategories.includes('website_development')) {
+        requiredCategories.push('website_development');
+      }
+    } else if (l.includes('reels') || l.includes('tiktok') || l.includes('short form') || l.includes('shoot') || l.includes('production')) {
+      if (!requiredCategories.includes('ad_production')) {
+        requiredCategories.push('ad_production');
+      }
+    } else if (l.includes('digital') || l.includes('digi') || l.includes('digtal') || l.includes('marketing') || l.includes('ads') || l.includes('seo') || l.includes('branding') || l.includes('influencer') || l.includes('copywriting') || l.includes('content')) {
+      if (!requiredCategories.includes('digital_marketing')) {
+        requiredCategories.push('digital_marketing');
+      }
+    }
+  });
+
+  if (requiredCategories.length === 0) {
+    requiredCategories.push('digital_marketing');
+  }
+
+  const anyOnboarded = requiredCategories.some(cat => {
+    const catData = lead.categoryData ? (lead.categoryData.get ? lead.categoryData.get(cat) : lead.categoryData[cat]) : null;
+    return catData && (catData.status === 'onboarded' || catData.status === 'moved_to_operations');
+  }) || (selectedCategory && (
+    (lead.categoryData?.get ? lead.categoryData.get(selectedCategory)?.status === 'onboarded' : lead.categoryData?.[selectedCategory]?.status === 'onboarded') ||
+    (lead.categoryData?.get ? lead.categoryData.get(selectedCategory)?.status === 'moved_to_operations' : lead.categoryData?.[selectedCategory]?.status === 'moved_to_operations')
+  ));
+
+  if (anyOnboarded) {
+    lead.status = 'onboarded';
+  } else {
+    lead.status = 'pending';
+  }
+
+  // Calculate total deal value from all onboarded categories
+  let totalDealValue = 0;
+  for (const cat of ['digital_marketing', 'website_development', 'ad_production']) {
+    const catData = lead.categoryData ? (lead.categoryData.get ? lead.categoryData.get(cat) : lead.categoryData[cat]) : null;
+    if (catData && (catData.status === 'onboarded' || catData.status === 'moved_to_operations')) {
+      totalDealValue += (catData.finalDealValue || 0);
+    }
+  }
+  lead.dealValue = totalDealValue;
+};
+
 // Get all brand leads with filtering and search
 const getAllBrandLeads = async (req, res) => {
   try {
@@ -32,7 +162,7 @@ const getAllBrandLeads = async (req, res) => {
 
     const leads = await BrandLead.find(query)
       .populate("createdBy", "name email role")
-      .populate("assignedTo", "name email role")
+      .populate("assignedTo", "name email role designation")
       .populate("followUps.by", "name email")
       .sort({ createdAt: -1 })
       .lean();
@@ -57,7 +187,7 @@ const getBrandLeadById = async (req, res) => {
     const { id } = req.params;
     const lead = await BrandLead.findById(id)
       .populate("createdBy", "name email role")
-      .populate("assignedTo", "name email role")
+      .populate("assignedTo", "name email role designation")
       .populate("followUps.by", "name email")
       .lean();
 
@@ -91,10 +221,18 @@ const createBrandLead = async (req, res) => {
       website,
       status,
       dealValue,
+      estimatedDealValue,
+      finalDealValue,
       source,
       notes,
       followUpDate,
       assignedTo,
+      instagram,
+      whatsAppGroupLink,
+      requirements,
+      budget,
+      brandDescription,
+      deliverables,
     } = req.body;
 
     if (!brandName || !contactPerson) {
@@ -115,19 +253,36 @@ const createBrandLead = async (req, res) => {
       website: website || "",
       status: status || "new",
       dealValue: dealValue || 0,
+      estimatedDealValue: estimatedDealValue || 0,
+      finalDealValue: finalDealValue || 0,
       source: source || "Other",
       notes: notes || "",
       followUpDate: followUpDate ? new Date(followUpDate) : null,
       createdBy: createdById,
       assignedTo: assignedTo || null,
+      instagram: instagram || "",
+      whatsAppGroupLink: whatsAppGroupLink || "",
+      requirements: requirements || [],
+      budget: budget || "",
+      brandDescription: brandDescription || "",
+      deliverables: deliverables || {
+        branding: { checked: false, count: 0 },
+        ugc: { checked: false, count: 0 },
+        reels: { checked: false, count: 0 },
+        posts: { checked: false, count: 0 }
+      },
       followUps: [],
     });
+
+    if (newLead.status === 'onboarded') {
+      updateCategoryDataForOnboarding(newLead, req.body.category);
+    }
 
     await newLead.save();
 
     const populatedLead = await BrandLead.findById(newLead._id)
       .populate("createdBy", "name email role")
-      .populate("assignedTo", "name email role");
+      .populate("assignedTo", "name email role designation");
 
     res.status(201).json({
       success: true,
@@ -143,12 +298,21 @@ const createBrandLead = async (req, res) => {
 // Update an existing brand lead
 const updateBrandLead = async (req, res) => {
   try {
-    // if (!["admin", "hr"].includes(req.user.role)) {
-    //   return res.status(403).json({ success: false, message: "Access denied" });
-    // }
-
     const { id } = req.params;
-    const updateFields = req.body;
+    const updateFields = { ...req.body };
+    
+    // Log request
+    try {
+      const fs = require('fs');
+      const path = require('path');
+      fs.appendFileSync(
+        path.join(__dirname, '../../scratch/debug.log'),
+        `\n[${new Date().toISOString()}] UPDATE START\nID: ${id}\nBody: ${JSON.stringify(req.body)}\n`
+      );
+    } catch (e) {}
+
+    const category = updateFields.category;
+    delete updateFields.category;
 
     // Remove immutable fields or ones handled separately
     delete updateFields.createdBy;
@@ -158,24 +322,74 @@ const updateBrandLead = async (req, res) => {
       updateFields.followUpDate = new Date(updateFields.followUpDate);
     }
 
-    const updatedLead = await BrandLead.findByIdAndUpdate(
-      id,
-      { $set: updateFields },
-      { new: true, runValidators: true }
-    )
-      .populate("createdBy", "name email role")
-      .populate("assignedTo", "name email role")
-      .populate("followUps.by", "name email");
-
-    if (!updatedLead) {
+    const lead = await BrandLead.findById(id);
+    if (!lead) {
       return res.status(404).json({ success: false, message: "Brand lead not found" });
     }
+
+    const isOnboarding = updateFields.status === 'onboarded';
+
+    // Apply category-specific updates if category is provided
+    if (category) {
+      const categorySpecificFields = ['estimatedDealValue', 'finalDealValue', 'assignedTo', 'status', 'followUpDate'];
+      if (!lead.categoryData) lead.categoryData = new Map();
+      
+      const current = lead.categoryData.get ? lead.categoryData.get(category) : lead.categoryData[category];
+      const currentObj = current && typeof current.toObject === 'function' ? current.toObject() : current;
+      const catUpdate = { ...(currentObj || {}) };
+      for (const field of categorySpecificFields) {
+        if (updateFields[field] !== undefined) {
+          catUpdate[field] = updateFields[field];
+        }
+      }
+      
+      if (lead.categoryData.set) {
+        lead.categoryData.set(category, catUpdate);
+      } else {
+        lead.categoryData[category] = catUpdate;
+      }
+      lead.markModified('categoryData');
+
+      try {
+        const fs = require('fs');
+        const path = require('path');
+        fs.appendFileSync(
+          path.join(__dirname, '../../scratch/debug.log'),
+          `After category block set, in-memory Map: ${JSON.stringify(lead.categoryData.get(category))}\n`
+        );
+      } catch (e) {}
+
+      // Remove category fields from top-level update fields
+      for (const field of categorySpecificFields) {
+        delete updateFields[field];
+      }
+    }
+
+    // Apply remaining top-level fields
+    Object.assign(lead, updateFields);
+
+    if (isOnboarding) {
+      lead.status = 'onboarded';
+    }
+
+    // If onboarding, update categoryData for the selected category
+    if (lead.status === 'onboarded') {
+      updateCategoryDataForOnboarding(lead, category);
+    }
+
+    await lead.save();
+
+    const populatedLead = await BrandLead.findById(lead._id)
+      .populate("createdBy", "name email role")
+      .populate("assignedTo", "name email role designation")
+      .populate("followUps.by", "name email");
 
     res.json({
       success: true,
       message: "Brand lead updated successfully",
-      data: updatedLead,
+      data: populatedLead,
     });
+
   } catch (error) {
     console.error("Update brand lead error:", error);
     res.status(500).json({ success: false, message: "Server error updating brand lead" });
@@ -244,7 +458,7 @@ const addFollowUp = async (req, res) => {
 
     const updatedLead = await BrandLead.findById(id)
       .populate("createdBy", "name email role")
-      .populate("assignedTo", "name email role")
+      .populate("assignedTo", "name email role designation")
       .populate("followUps.by", "name email");
 
     res.json({
@@ -338,6 +552,50 @@ const submitClientBrandLead = async (req, res) => {
   }
 };
 
+// Re-onboard a brand lead
+const reOnboardBrandLead = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { date, dealValue, requirements, assignedTo } = req.body;
+
+    const lead = await BrandLead.findById(id);
+    if (!lead) {
+      return res.status(404).json({ success: false, message: "Brand lead not found" });
+    }
+
+    if (!lead.onboardedDates) {
+      lead.onboardedDates = [];
+    }
+
+    // Add original createdAt to the array if it's empty, to preserve history
+    if (lead.onboardedDates.length === 0 && lead.status === 'onboarded') {
+      lead.onboardedDates.push(lead.createdAt);
+    }
+
+    const reOnboardDate = date ? new Date(date) : new Date();
+    lead.onboardedDates.push(reOnboardDate);
+
+    // Update new fields if provided
+    if (dealValue !== undefined) lead.dealValue = dealValue;
+    if (requirements !== undefined) lead.requirements = requirements;
+    if (assignedTo !== undefined) lead.assignedTo = assignedTo || null;
+    
+    // Ensure status is onboarded just in case
+    lead.status = 'onboarded';
+
+    await lead.save();
+
+    res.json({
+      success: true,
+      message: "Client re-onboarded successfully",
+      data: lead,
+    });
+  } catch (error) {
+    console.error("Re-onboard brand lead error:", error);
+    res.status(500).json({ success: false, message: "Server error re-onboarding brand lead" });
+  }
+};
+
 module.exports = {
   getAllBrandLeads,
   getBrandLeadById,
@@ -347,4 +605,5 @@ module.exports = {
   addFollowUp,
   getClientBrandLead,
   submitClientBrandLead,
+  reOnboardBrandLead,
 };

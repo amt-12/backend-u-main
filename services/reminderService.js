@@ -1,6 +1,7 @@
 const cron = require('node-cron');
 const Reminder = require('../models/Reminder');
 const LiveClass = require('../models/LiveClass');
+const BrandWorkflow = require('../models/BrandWorkflow');
 const { sendEmail } = require('./emailService');
 
 let cronJob = null;
@@ -52,6 +53,84 @@ const startReminderCron = () => {
         await reminder.save();
 
         console.log(`✅ Reminder sent to ${studentId.email} for ${classTitle}`);
+      }
+
+      // Check upcoming shoot reminders for photographers (1 day before)
+      try {
+        const oneDayFromNow = new Date(now.getTime() + 24 * 60 * 60 * 1000);
+        const shootWorkflows = await BrandWorkflow.find({
+          currentMilestone: 'assigning_photographers',
+          'assigningPhotographers.shootDate': { $ne: null, $lte: oneDayFromNow },
+          'assigningPhotographers.reminderSent': { $ne: true }
+        }).populate('brandLead', 'brandName').populate('assigningPhotographers.photographers', 'name email');
+
+        for (const wf of shootWorkflows) {
+          const brandName = wf.brandLead?.brandName || 'Brand';
+          const shootDateStr = new Date(wf.assigningPhotographers.shootDate).toLocaleString();
+          const shootLocation = wf.assigningPhotographers.shootLocation || 'Decided location';
+          const photographers = wf.assigningPhotographers.photographers || [];
+
+          for (const photo of photographers) {
+            if (!photo.email) continue;
+            
+            // Send Email
+            try {
+              await sendEmail(
+                photo.email,
+                `📸 Shoot Reminder: Shoot for ${brandName} is scheduled tomorrow!`,
+                {
+                  name: photo.name,
+                  subject: `Shoot Reminder - ${brandName}`,
+                  message: `
+                    <h2>📸 Shoot Reminder!</h2>
+                    <p>Hello <strong>${photo.name}</strong>,</p>
+                    <p>This is a reminder that you are scheduled for a shoot for <strong>${brandName}</strong> tomorrow.</p>
+                    <div style="background:#f8f9fa; padding:15px; border-radius:8px; margin:15px 0;">
+                      <p>📅 <strong>Time:</strong> ${shootDateStr}</p>
+                      <p>📍 <strong>Location:</strong> ${shootLocation}</p>
+                    </div>
+                    <p>Please make sure to check the production deck and arrive on time.</p>
+                    <p>Best regards,<br>Unreal Studio Operations Team</p>
+                  `
+                }
+              );
+              console.log(`✅ Photographer shoot email sent to ${photo.email} for ${brandName}`);
+            } catch (err) {
+              console.error(`Failed to send shoot email to ${photo.email}:`, err);
+            }
+
+            // Create Notification
+            try {
+              const NotificationModel = require('../models/Notification');
+              const notification = new NotificationModel({
+                title: `📸 Shoot Scheduled: ${brandName}`,
+                message: `Reminder: You have a shoot scheduled for ${brandName} tomorrow at ${shootLocation} (${shootDateStr}).`,
+                type: 'reminder',
+                target: 'all',
+                recipients: [{ userId: photo._id, isRead: false }]
+              });
+              await notification.save();
+
+              if (global.io) {
+                global.io.to(`user_${photo._id}`).emit('newNotification', {
+                  _id: notification._id.toString(),
+                  title: notification.title,
+                  message: notification.message,
+                  type: notification.type,
+                  createdAt: notification.createdAt.toISOString()
+                });
+              }
+            } catch (err) {
+              console.error(`Failed to create db notification for photographer ${photo.email}:`, err);
+            }
+          }
+
+          // Mark reminder as sent
+          wf.assigningPhotographers.reminderSent = true;
+          await wf.save();
+        }
+      } catch (err) {
+        console.error('Error checking photographer shoot reminders in cron:', err);
       }
 
     } catch (error) {

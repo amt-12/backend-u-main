@@ -53,8 +53,8 @@ const clampNetHoursWithBreakAllowance = ({
 // Returns rows used by u-admin-panel Payroll.tsx
 const getPayrollSummary = async (req, res) => {
   try {
-    // basic role check: allow admin/hr only
-    if (!['admin', 'hr', 'hr_manager', 'super_admin'].includes(req.user.role)) {
+    // basic role check: allow super_admin and admin only
+    if (!['super_admin', 'admin'].includes(req.user.role)) {
       return res.status(403).json({ success: false, message: 'Access denied' });
     }
 
@@ -67,7 +67,7 @@ const getPayrollSummary = async (req, res) => {
     const workingDays = getWorkingDaysInMonth(startOfMonth, endOfMonth);
     const expectedHoursMonth = workingDays * 8;
 
-    const users = await User.find({ role: { $in: ['employee', 'hr'] } })
+    const users = await User.find({ role: { $in: ['manager', 'executive'] } })
       .select('name email department role salaryStructure')
       .lean();
 

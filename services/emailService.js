@@ -12,6 +12,15 @@ const transporter = nodemailer.createTransport({
   }
 });
 
+// Verify connection on startup
+transporter.verify((error, success) => {
+  if (error) {
+    console.error('❌ SMTP transporter verify failed:', error.message);
+  } else {
+    console.log('✅ SMTP transporter is ready to send emails');
+  }
+});
+
 // Send generic email with optional HTML content
 async function sendEmail(to, subject, data = {}) {
   try {
@@ -42,7 +51,7 @@ async function sendEmail(to, subject, data = {}) {
                     <!-- Header -->
                     <tr>
                       <td style="background:linear-gradient(135deg, #0f172a, #1e3a8a); padding:30px; text-align:center; color:#ffffff;">
-                        <img src="https://lms-aja.s3.ap-south-1.amazonaws.com/UNREALLOGO-DfmVor3b.webp" alt="UNREAL" style="max-height:80px; width:auto; display:inline-block;" />
+                        <img src="https://unrealstudiozz.com/assets/UNREALLOGO-optimized-CywaMXn1.webp" alt="UNREAL" style="max-height:80px; width:auto; display:inline-block;" />
                       </td>
                     </tr>
                     <!-- Body -->
@@ -193,20 +202,31 @@ async function sendTestCompletionEmail(student, { score = 0, totalQuestions = 0 
 }
 
 async function sendStaffWelcomeEmail(to, name, tempPassword, dashboardLink) {
-  await sendEmail(to, 'Welcome to Unreal Studioz - Staff Account!', {
+  await sendEmail(to, 'Welcome to Unreal Studioz - Staff Account Created!', {
     name,
     subject: 'Staff Account Created',
     message: `
-      <p>Hello ${name},</p>
-      <p>Your staff account has been created successfully.</p>
-      <p><strong>Email:</strong> ${to}</p>
-      <p><strong>Temporary Password:</strong> <span style="font-size:18px; color:#13294B;">${tempPassword}</span></p>
-      <p><em>Note: Your temporary password is your registered mobile number. Please log in to the admin dashboard and change your password after your first login.</em></p>
-      <p style="text-align:center;">
-        <a href="${dashboardLink}" style="background:#13294B; color:white; padding:12px 24px; text-decoration:none; border-radius:6px;">
-          Go to Dashboard
+      <p style="font-size:16px;">Hello <strong>${name}</strong>,</p>
+      <p>Your staff account has been created successfully. Below are your login credentials:</p>
+      <table style="border-collapse:collapse; width:100%; margin:20px 0; background:#f8fafc; border-radius:8px; overflow:hidden;">
+        <tr>
+          <td style="padding:12px 16px; font-weight:bold; color:#0f172a; border-bottom:1px solid #e2e8f0; width:40%;">Email</td>
+          <td style="padding:12px 16px; color:#334155; border-bottom:1px solid #e2e8f0;">${to}</td>
+        </tr>
+        <tr>
+          <td style="padding:12px 16px; font-weight:bold; color:#0f172a;">Password</td>
+          <td style="padding:12px 16px;">
+            <span style="font-size:20px; font-weight:bold; color:#1e3a8a; letter-spacing:2px; background:#e0e7ff; padding:4px 12px; border-radius:6px;">${tempPassword}</span>
+          </td>
+        </tr>
+      </table>
+      <p style="color:#64748b; font-size:14px;">⚠️ This is a system-generated temporary password. Please log in and change your password immediately after your first login.</p>
+      <p style="text-align:center; margin-top:24px;">
+        <a href="${dashboardLink}" style="background:linear-gradient(135deg,#0f172a,#1e3a8a); color:white; padding:14px 32px; text-decoration:none; border-radius:8px; font-size:15px; font-weight:bold; display:inline-block;">
+          Go to Dashboard →
         </a>
       </p>
+      <p style="color:#94a3b8; font-size:12px; margin-top:16px;">If you have any trouble logging in, contact your administrator.</p>
     `
   });
 }

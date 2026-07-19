@@ -387,7 +387,7 @@ const getMyAttendance = async (req, res) => {
 // Get All Staff Attendance (Admin/HR)
 const getAllAttendance = async (req, res) => {
   try {
-    if (!['admin', 'hr'].includes(req.user.role)) {
+    if (!['super_admin', 'admin', 'manager'].includes(req.user.role)) {
       return res.status(403).json({ success: false, message: 'Access denied' });
     }
     const { month, year, page = 1, limit = 10, status } = req.query;

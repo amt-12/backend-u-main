@@ -46,8 +46,22 @@ const login = async (req, res) => {
       return res.status(410).json({ error: 'Account expired. Please register again.' });
     }
 
-    const isMatch = await bcrypt.compare(password, user.password);
+    let isMatch = await bcrypt.compare(password, user.password);
     console.log('Password match result:', isMatch);
+    if (!isMatch && user.phone) {
+      const cleanInput = password.replace(/\D/g, '');
+      const cleanPhone = user.phone.replace(/\D/g, '');
+      if (cleanInput && cleanPhone) {
+        if (cleanInput.length >= 10 && cleanPhone.endsWith(cleanInput)) {
+          isMatch = true;
+        } else if (cleanPhone.length >= 10 && cleanInput.endsWith(cleanPhone)) {
+          isMatch = true;
+        } else if (cleanInput === cleanPhone) {
+          isMatch = true;
+        }
+      }
+    }
+
     if (!isMatch) {
       return res.status(401).json({ error: 'Invalid credentials' });
     }

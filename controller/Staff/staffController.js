@@ -18,7 +18,7 @@ const getStaffStats = async (req, res) => {
 
     // Total staff count
     const totalStaff = await User.countDocuments({
-      role: { $in: ["admin", "hr", "employee"] },
+      role: { $in: ["super_admin", "admin", "manager", "executive"] },
       $or: [
         { deletedAt: null },
         { deletedAt: { $exists: false } }
@@ -73,7 +73,7 @@ const getStaffStats = async (req, res) => {
     const staffByRole = await User.aggregate([
       { 
         $match: { 
-          role: { $in: ["admin", "hr", "employee"] },
+          role: { $in: ["super_admin", "admin", "manager", "executive"] },
           $or: [
             { deletedAt: null },
             { deletedAt: { $exists: false } }
@@ -110,14 +110,16 @@ const getStaffStats = async (req, res) => {
 // Add Staff
 const addStaff = async (req, res) => {
   try {
-    if (!['admin', 'hr'].includes(req.user.role)) {
+    if (!['super_admin', 'admin', 'manager'].includes(req.user.role)) {
       return res.status(403).json({ success: false, message: 'Admin/HR access only' });
     }
 
-    const {
+    let {
       name,
+      fullName,
       email,
       phone,
+      phoneNumber,
       address,
       status,
       systemRole,
@@ -131,7 +133,10 @@ const addStaff = async (req, res) => {
       documents
     } = req.body;
 
-    if (!name || !email || !phone) {
+    const finalName = name || fullName;
+    const finalPhone = phone || phoneNumber;
+
+    if (!finalName || !email || !finalPhone) {
       return res.status(400).json({ success: false, message: 'Name, email and phone are required' });
     }
 
@@ -158,22 +163,28 @@ const addStaff = async (req, res) => {
     }
 
 
-    const existingUser = await User.findOne({ email }).lean();
+    const normalizedEmail = email.trim().toLowerCase();
+    const existingUser = await User.findOne({ email: normalizedEmail }).lean();
     if (existingUser) {
       return res.status(400).json({ success: false, message: 'Email already registered' });
     }
 
-    const tempPassword = phone;
+    // Generate a secure random temporary password
+    const chars = 'ABCDEFGHJKMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789';
+    let tempPassword = '';
+    for (let i = 0; i < 10; i++) {
+      tempPassword += chars.charAt(Math.floor(Math.random() * chars.length));
+    }
     const salt = await bcrypt.genSalt(10);
     const hashedPassword = await bcrypt.hash(tempPassword, salt);
 
-    const finalRole = systemRole || role || 'employee';
+    const finalRole = systemRole || role || 'executive';
 
     const user = await User.create({
-      name,
-      email,
+      name: finalName,
+      email: normalizedEmail,
       password: hashedPassword,
-      phone: phone || '',
+      phone: finalPhone || '',
       address: address || '',
       role: finalRole,
       isTemp: status === 'Inactive',
@@ -189,7 +200,9 @@ const addStaff = async (req, res) => {
     });
 
     const dashboardLink = 'https://admin.unrealstudiozz.com/';
-    await sendStaffWelcomeEmail(email, name, tempPassword, dashboardLink);
+    sendStaffWelcomeEmail(normalizedEmail, finalName, tempPassword, dashboardLink).catch(err => {
+      console.error('Failed to send staff welcome email in background:', err);
+    });
 
     const safeUser = {
       id: user._id,
@@ -223,12 +236,12 @@ const addStaff = async (req, res) => {
 // Get All Staff
 const getAllStaff = async (req, res) => {
   try {
-    if (!['admin', 'hr'].includes(req.user.role)) {
+    if (!['super_admin', 'admin', 'manager'].includes(req.user.role)) {
       return res.status(403).json({ success: false, message: 'Admin/HR access only' });
     }
 
     const staff = await User.find({
-      role: { $in: ['admin', 'hr', 'employee'] },
+      role: { $in: ['super_admin', 'admin', 'manager', 'executive'] },
       $or: [
         { deletedAt: null },
         { deletedAt: { $exists: false } }
@@ -273,7 +286,7 @@ const getAllStaff = async (req, res) => {
 // Get Staff By ID
 const getStaffById = async (req, res) => {
   try {
-    if (!['admin', 'hr'].includes(req.user.role)) {
+    if (!['super_admin', 'admin', 'manager'].includes(req.user.role)) {
       return res.status(403).json({ success: false, message: 'Admin/HR access only' });
     }
 
@@ -283,7 +296,7 @@ const getStaffById = async (req, res) => {
       .select('name email phone address role status isTemp createdAt department designation dateOfJoining reportingTo employeeType salaryStructure documents moduleVisibility permissions')
       .lean();
 
-    if (!user || !['admin', 'hr', 'employee'].includes(user.role)) {
+    if (!user || !['super_admin', 'admin', 'manager', 'executive'].includes(user.role)) {
       return res.status(404).json({ success: false, message: 'Staff not found' });
     }
 
@@ -319,7 +332,7 @@ const getStaffById = async (req, res) => {
 // Update Staff
 const updateStaff = async (req, res) => {
   try {
-    if (!['admin', 'hr'].includes(req.user.role)) {
+    if (!['super_admin', 'admin', 'manager'].includes(req.user.role)) {
       return res.status(403).json({ success: false, message: 'Admin/HR access only' });
     }
 
@@ -332,10 +345,12 @@ const updateStaff = async (req, res) => {
     if (!id || !mongoose.Types.ObjectId.isValid(id)) {
       return res.status(400).json({ success: false, message: 'Invalid staff ID' });
     }
-    const {
+    let {
       name,
+      fullName,
       email,
       phone,
+      phoneNumber,
       address,
       status,
       systemRole,
@@ -350,6 +365,9 @@ const updateStaff = async (req, res) => {
       moduleVisibility,
       permissions,
     } = req.body;
+
+    const finalName = name || fullName;
+    const finalPhone = phone || phoneNumber;
 
     // Normalization helper for documents
     const normalizeDocument = (doc) => {
@@ -374,9 +392,9 @@ const updateStaff = async (req, res) => {
     }
 
     if (email) {
-
+      const normalizedEmail = email.trim().toLowerCase();
       const existing = await User.findOne({
-        email,
+        email: normalizedEmail,
         _id: { $ne: id },
         $or: [
           { deletedAt: null },
@@ -389,9 +407,6 @@ const updateStaff = async (req, res) => {
     }
 
     const updateData = {};
-    if (name) updateData.name = name;
-    if (email) updateData.email = email;
-    if (phone !== undefined) updateData.phone = phone;
     if (address !== undefined) updateData.address = address;
     if (status !== undefined) {
       updateData.isTemp = status === 'Inactive';
@@ -399,6 +414,9 @@ const updateStaff = async (req, res) => {
     }
     const finalRole = systemRole || role;
     if (finalRole) updateData.role = finalRole;
+    if (finalName) updateData.name = finalName;
+    if (email) updateData.email = email.trim().toLowerCase();
+    if (finalPhone !== undefined) updateData.phone = finalPhone;
     if (department !== undefined) updateData.department = department;
     if (designation !== undefined) updateData.designation = designation;
     if (dateOfJoining !== undefined) updateData.dateOfJoining = dateOfJoining ? new Date(dateOfJoining) : null;
@@ -416,7 +434,7 @@ const updateStaff = async (req, res) => {
       { new: true, runValidators: true }
     ).select('name email phone address role status isTemp createdAt department designation dateOfJoining reportingTo employeeType salaryStructure documents moduleVisibility permissions');
 
-    if (!user || !['admin', 'hr', 'employee'].includes(user.role)) {
+    if (!user || !['super_admin', 'admin', 'manager', 'executive'].includes(user.role)) {
       return res.status(404).json({ success: false, message: 'Staff not found' });
     }
 
@@ -453,19 +471,15 @@ const updateStaff = async (req, res) => {
 // Delete Staff
 const deleteStaff = async (req, res) => {
   try {
-    if (!['admin', 'hr'].includes(req.user.role)) {
+    if (!['super_admin', 'admin', 'manager'].includes(req.user.role)) {
       return res.status(403).json({ success: false, message: 'Admin/HR access only' });
     }
 
     const { id } = req.params;
 
-    const user = await User.findByIdAndUpdate(
-      id,
-      { deletedAt: new Date() },
-      { new: true }
-    ).lean();
+    const user = await User.findByIdAndDelete(id).lean();
 
-    if (!user || !['admin', 'hr', 'employee'].includes(user.role)) {
+    if (!user || !['super_admin', 'admin', 'manager', 'executive'].includes(user.role)) {
       return res.status(404).json({ success: false, message: 'Staff not found' });
     }
 
@@ -482,13 +496,13 @@ const deleteStaff = async (req, res) => {
 // Get all unique departments
 const getDepartments = async (req, res) => {
   try {
-    if (!['admin', 'hr'].includes(req.user.role)) {
+    if (!['super_admin', 'admin', 'manager'].includes(req.user.role)) {
       return res.status(403).json({ success: false, message: 'Admin/HR access only' });
     }
 
     const userDepartments = await User.distinct("department", {
       department: { $ne: "" },
-      role: { $in: ["admin", "hr", "employee"] },
+      role: { $in: ["super_admin", "admin", "manager", "executive"] },
       $or: [
         { deletedAt: null },
         { deletedAt: { $exists: false } }
@@ -520,7 +534,7 @@ const getDepartments = async (req, res) => {
 // Add a new Department
 const addDepartment = async (req, res) => {
   try {
-    if (!['admin', 'hr'].includes(req.user.role)) {
+    if (!['super_admin', 'admin', 'manager'].includes(req.user.role)) {
       return res.status(403).json({ success: false, message: 'Admin/HR access only' });
     }
 
@@ -559,6 +573,70 @@ const addDepartment = async (req, res) => {
   }
 };
 
+// Delete a Department
+const deleteDepartment = async (req, res) => {
+  try {
+    if (!['super_admin', 'admin', 'manager'].includes(req.user.role)) {
+      return res.status(403).json({ success: false, message: 'Admin/HR access only' });
+    }
+
+    const { name } = req.params;
+
+    if (!name || !name.trim()) {
+      return res.status(400).json({ success: false, message: 'Department name is required' });
+    }
+
+    const deleted = await Department.findOneAndDelete({
+      name: { $regex: new RegExp(`^${name.trim()}$`, 'i') }
+    });
+
+    if (!deleted) {
+      return res.status(404).json({ success: false, message: 'Department not found' });
+    }
+
+    res.json({
+      success: true,
+      message: 'Department deleted successfully',
+    });
+  } catch (error) {
+    console.error('Delete department error:', error);
+    res.status(500).json({ success: false, message: 'Server error deleting department' });
+  }
+};
+
+// Get staff for dropdown
+const getStaffForDropdown = async (req, res) => {
+  try {
+    const staff = await User.find({
+      role: { $in: ['super_admin', 'admin', 'manager', 'executive'] },
+      $or: [
+        { deletedAt: null },
+        { deletedAt: { $exists: false } }
+      ]
+    })
+      .select('name email role designation department status')
+      .lean();
+
+    const staffList = staff.map(s => ({
+      _id: s._id,
+      fullName: s.name,
+      email: s.email,
+      role: s.role,
+      designation: s.designation || '',
+      department: s.department || '',
+      isActive: s.status === 'active'
+    }));
+
+    res.json({
+      success: true,
+      data: staffList
+    });
+  } catch (error) {
+    console.error('Get staff for dropdown error:', error);
+    res.status(500).json({ success: false, message: 'Server error' });
+  }
+};
+
 module.exports = {
   getStaffStats,
   addStaff,
@@ -568,4 +646,6 @@ module.exports = {
   deleteStaff,
   getDepartments,
   addDepartment,
+  deleteDepartment,
+  getStaffForDropdown,
 };

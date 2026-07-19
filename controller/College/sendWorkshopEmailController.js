@@ -4,7 +4,7 @@ const { WORKSHOP_EMAIL_CONTENT } = require('../../services/emailTemplates');
 
 const sendWorkshopEmail = async (req, res) => {
   try {
-    if (req.user.role !== 'admin') {
+    if (!['super_admin', 'admin', 'manager'].includes(req.user.role)) {
       return res.status(403).json({ success: false, error: 'Admin access only' });
     }
 

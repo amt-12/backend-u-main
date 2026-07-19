@@ -1,0 +1,271 @@
+const { Client, LocalAuth } = require('whatsapp-web.js');
+const qrcode = require('qrcode');
+const path = require('path');
+
+let client = null;
+let qrCodeData = null;
+let status = 'disconnected'; // 'disconnected', 'qr_ready', 'connecting', 'connected'
+
+const initWhatsApp = () => {
+  if (client) return;
+
+  console.log('🔮 Initializing WhatsApp Client...');
+  status = 'connecting';
+  
+  client = new Client({
+    authStrategy: new LocalAuth({
+      dataPath: path.join(__dirname, '../.wwebjs_auth')
+    }),
+    puppeteer: {
+      headless: true,
+      args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-gpu']
+    }
+  });
+
+  client.on('qr', async (qr) => {
+    console.log('📸 WhatsApp QR code received, generating image...');
+    status = 'qr_ready';
+    try {
+      qrCodeData = await qrcode.toDataURL(qr);
+    } catch (err) {
+      console.error('Error generating QR code data URL:', err);
+    }
+  });
+
+  client.on('ready', () => {
+    console.log('✅ WhatsApp Client is READY!');
+    status = 'connected';
+    qrCodeData = null;
+  });
+
+  client.on('authenticated', () => {
+    console.log('🔑 WhatsApp Client authenticated!');
+  });
+
+  client.on('auth_failure', (msg) => {
+    console.error('❌ WhatsApp Authentication failure:', msg);
+    status = 'disconnected';
+    qrCodeData = null;
+  });
+
+  client.on('disconnected', (reason) => {
+    console.log('🔌 WhatsApp Client disconnected:', reason);
+    status = 'disconnected';
+    qrCodeData = null;
+    // Re-initialize client after disconnection to retry
+    client = null;
+    setTimeout(() => initWhatsApp(), 5000);
+  });
+
+  client.initialize().catch(err => {
+    console.error('❌ Error initializing WhatsApp client:', err);
+    status = 'disconnected';
+  });
+};
+
+const getStatus = () => {
+  return {
+    status,
+    qrCode: qrCodeData
+  };
+};
+
+const getGroups = async () => {
+  if (!client || status !== 'connected') {
+    throw new Error('WhatsApp is not connected');
+  }
+  try {
+    const chats = await client.getChats();
+    if (!Array.isArray(chats)) return [];
+    const groups = chats
+      .filter(chat => chat && chat.isGroup)
+      .map(chat => ({
+        id: chat.id._serialized,
+        name: chat.name || 'Unnamed Group'
+      }));
+    return groups;
+  } catch (err) {
+    console.error('Error fetching chats from Puppeteer:', err);
+    return [];
+  }
+};
+
+const sendMessage = async (chatIdOrInvite, messageText) => {
+  if (!client || status !== 'connected') {
+    throw new Error('WhatsApp is not connected');
+  }
+  
+  let targetChatId = chatIdOrInvite;
+  
+  // If it's an invite link
+  if (chatIdOrInvite.includes('chat.whatsapp.com')) {
+    let code = chatIdOrInvite.trim();
+    const urlMatch = code.match(/chat\.whatsapp\.com\/([A-Za-z0-9]+)/);
+    if (urlMatch) {
+      code = urlMatch[1];
+    }
+    
+    try {
+      // First try to resolve invite info to get the group ID
+      const info = await client.getInviteInfo(code);
+      if (info && info.id && info.id._serialized) {
+        targetChatId = info.id._serialized;
+      }
+    } catch (err) {
+      console.log('Error resolving invite info:', err.message);
+    }
+    
+    try {
+      // Accept invite (join the group)
+      const joinedId = await client.acceptInvite(code);
+      if (joinedId) {
+        targetChatId = joinedId;
+      }
+    } catch (err) {
+      console.log('Error accepting invite (already joined or invalid):', err.message);
+    }
+  }
+  
+  const response = await client.sendMessage(targetChatId, messageText);
+  return response;
+};
+
+const sendMediaMessage = async (chatIdOrInvite, media, caption) => {
+  if (!client || status !== 'connected') {
+    throw new Error('WhatsApp is not connected');
+  }
+  
+  let targetChatId = chatIdOrInvite;
+  
+  if (chatIdOrInvite.includes('chat.whatsapp.com')) {
+    let code = chatIdOrInvite.trim();
+    const urlMatch = code.match(/chat\.whatsapp\.com\/([A-Za-z0-9]+)/);
+    if (urlMatch) {
+      code = urlMatch[1];
+    }
+    
+    try {
+      const info = await client.getInviteInfo(code);
+      if (info && info.id && info.id._serialized) {
+        targetChatId = info.id._serialized;
+      }
+    } catch (err) {
+      console.log('Error resolving invite info:', err.message);
+    }
+    
+    try {
+      const joinedId = await client.acceptInvite(code);
+      if (joinedId) {
+        targetChatId = joinedId;
+      }
+    } catch (err) {
+      console.log('Error accepting invite (already joined or invalid):', err.message);
+    }
+  }
+  
+  const response = await client.sendMessage(targetChatId, media, { caption });
+  return response;
+};
+
+// Resolve a WhatsApp invite code → group info (id + name) without joining
+const resolveInviteLink = async (code) => {
+  if (!client || status !== 'connected') {
+    throw new Error('WhatsApp is not connected');
+  }
+  try {
+    // getInviteInfo returns group metadata including id._serialized and subject
+    const info = await client.getInviteInfo(code);
+    if (!info) throw new Error('Could not resolve invite link. It may be invalid or expired.');
+    return {
+      id: info.id._serialized,
+      name: info.subject || 'Unknown Group'
+    };
+  } catch (err) {
+    throw new Error(err.message || 'Failed to resolve invite link.');
+  }
+};
+
+// Resolve a WhatsApp invite code → group ID without joining
+
+
+// New helper: get group JID from a full invite URL
+const getGroupIdFromLink = async (inviteUrl) => {
+  if (!inviteUrl) throw new Error('Invite URL is required');
+  // Extract the code part after /
+  const match = inviteUrl.match(/chat\.whatsapp\.com\/([A-Za-z0-9]+)/);
+  if (!match) throw new Error('Invalid WhatsApp invite URL');
+  const code = match[1];
+  const info = await resolveInviteLink(code);
+  return info.id; // Serialized JID
+};
+
+// Send automatic notifications about workflow updates to the brand's WhatsApp group
+const notifyWorkflowUpdate = async (brandLeadId, messageText) => {
+  const fs = require('fs');
+  const path = require('path');
+  const logPath = path.join(__dirname, '../scratch_error.log');
+  const logDebug = (msg) => {
+    try {
+      fs.appendFileSync(logPath, `[DEBUG-WA ${new Date().toISOString()}] ${msg}\n`, 'utf8');
+    } catch (e) {
+      console.error('Failed to write debug log:', e);
+    }
+  };
+
+  logDebug(`notifyWorkflowUpdate triggered for brandLeadId: ${brandLeadId}`);
+  logDebug(`- Client initialized: ${!!client}, Status: ${status}`);
+
+  if (!client || status !== 'connected') {
+    logDebug(`- Skipping: WhatsApp client is not connected.`);
+    console.log('[WhatsApp Auto-Update] WhatsApp client is not connected. Skipping notification.');
+    return;
+  }
+
+  try {
+    const BrandLead = require('../models/BrandLead');
+    const brandLead = await BrandLead.findById(brandLeadId);
+    if (!brandLead) {
+      logDebug(`- Skipping: BrandLead not found for ID: ${brandLeadId}`);
+      return;
+    }
+    logDebug(`- Found BrandLead: "${brandLead.brandName}", groupLink: "${brandLead.whatsAppGroupLink}"`);
+
+    if (!brandLead.whatsAppGroupLink) {
+      logDebug(`- Skipping: No group link configured.`);
+      console.log(`[WhatsApp Auto-Update] No WhatsApp group link configured for brandLeadId: ${brandLeadId}`);
+      return;
+    }
+
+    const inviteUrl = brandLead.whatsAppGroupLink.trim();
+    let targetGroupId = inviteUrl;
+
+    if (inviteUrl.includes('chat.whatsapp.com')) {
+      const match = inviteUrl.match(/chat\.whatsapp\.com\/([A-Za-z0-9]+)/);
+      if (match) {
+        const code = match[1];
+        const info = await resolveInviteLink(code);
+        targetGroupId = info.id;
+      }
+    }
+
+    logDebug(`- Sending message to group: ${targetGroupId}, message length: ${messageText.length}`);
+    console.log(`[WhatsApp Auto-Update] Sending automatic notification to group: ${targetGroupId}`);
+    await client.sendMessage(targetGroupId, messageText);
+    logDebug(`- Message sent successfully!`);
+  } catch (error) {
+    logDebug(`- ERROR sending notification: ${error.message}\n${error.stack}`);
+    console.error(`[WhatsApp Auto-Update] Failed to send notification for brand ${brandLeadId}:`, error.message);
+  }
+};
+
+module.exports = {
+  initWhatsApp,
+  getStatus,
+  getGroups,
+  sendMessage,
+  sendMediaMessage,
+  resolveInviteLink,
+  getGroupIdFromLink,
+  notifyWorkflowUpdate
+};
+

@@ -24,6 +24,13 @@ const brandLeadRoutes = require("./brandLeads.route");
 const payrollRoutes = require('./payroll.route');
 const menuRoutes = require('./menu.route');
 const credentialRoutes = require("./credential.route");
+const clientOperationsRoutes = require("./clientOperations.route");
+const scheduledPostRoutes = require("./scheduledPost.route");
+const brandWorkflowRoutes = require("./brandWorkflow.route");
+const whatsAppRoutes = require("./whatsApp.route");
+const performanceRoutes = require("./performance.route");
+const developmentRoutes = require("./development.route");
+const broadcastRoutes = require("./broadcast.route");
 
 const router = express.Router();
 
@@ -50,8 +57,16 @@ router.use("/internship-any", anyApplyInternshipRoutes);
 router.use("/brand-lead", brandLeadRoutes);
 router.use('/payroll', payrollRoutes);
 router.use("/credentials", credentialRoutes);
+router.use("/client-operations", clientOperationsRoutes);
+router.use("/scheduled-posts", scheduledPostRoutes);
+router.use("/brand-workflow", brandWorkflowRoutes);
+router.use("/whatsapp", whatsAppRoutes);
+router.use("/performance", performanceRoutes);
+router.use("/development", developmentRoutes);
+router.use("/broadcast", broadcastRoutes);
 
 router.use('/menu', menuRoutes);
+
 module.exports = router;
 
 

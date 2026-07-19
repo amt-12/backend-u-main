@@ -1,7 +1,7 @@
 const User = require("../../models/Auth/User");
 const deleteStudent = async (req, res) => {
   try {
-    if (req.user.role !== 'admin') {
+    if (!['super_admin', 'admin', 'manager'].includes(req.user.role)) {
       return res.status(403).json({ error: 'Admin access only' });
     }
 
