@@ -38,6 +38,8 @@ app.use(cors({
       "https://test.unrealstudiozz.com",
       "https://admin.unrealstudiozz.com",
     ];
+console.log("CORS:", process.env.CORS);
+console.log("JWT:", process.env.JWT_SECRET);
 
     if (allowedOrigins.includes(origin)) return callback(null, true);
 
