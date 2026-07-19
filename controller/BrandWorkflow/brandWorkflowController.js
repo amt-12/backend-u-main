@@ -341,12 +341,7 @@ const advanceMilestone = async (req, res) => {
           message: 'Please specify the shoot date & time.' 
         });
       }
-      if (!workflow.upload.driveLink) {
-        return res.status(400).json({ 
-          success: false, 
-          message: 'Please provide the shared drive link.' 
-        });
-      }
+
       workflow.assigningPhotographers.completed = true;
       workflow.assigningPhotographers.completedAt = new Date();
       workflow.assigningPhotographers.completedBy = userId;
