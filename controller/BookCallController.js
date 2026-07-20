@@ -22,10 +22,10 @@ const createBookCall = async (req, res) => {
 
     await newBooking.save();
 
-    // WhatsApp notification log to 9915497887 (implement Twilio/service later)
-    console.log('🚀 New BookCall - Send WhatsApp to 9915497887:', {
+    // WhatsApp notification log to 7739950105 (implement Twilio/service later)
+    console.log('🚀 New BookCall - Send WhatsApp to 7739950105:', {
       name,
-      phone: '9915497887',
+      phone: '7739950105',
       email,
       date: new Date(date).toLocaleDateString('en-IN'),
       time: new Date(date).toLocaleTimeString('en-IN'),
