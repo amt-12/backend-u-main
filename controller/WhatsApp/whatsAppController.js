@@ -199,10 +199,25 @@ const sendCalendarExcel = async (req, res) => {
   }
 };
 
+const disconnect = async (req, res) => {
+  try {
+    await whatsappService.disconnectWhatsApp();
+    res.json({
+      success: true,
+      message: 'WhatsApp disconnected successfully. Generating new QR code...'
+    });
+  } catch (error) {
+    console.error('Error disconnecting WhatsApp:', error);
+    logError('disconnect', error);
+    res.status(500).json({ success: false, message: 'Failed to disconnect WhatsApp.' });
+  }
+};
+
 module.exports = {
   getStatus,
   getGroups,
   sendMessage,
   resolveInviteLink,
-  sendCalendarExcel
+  sendCalendarExcel,
+  disconnect
 };

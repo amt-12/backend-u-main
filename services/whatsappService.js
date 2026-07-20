@@ -285,6 +285,33 @@ const notifyWorkflowUpdate = async (brandLeadId, messageText) => {
   }
 };
 
+const disconnectWhatsApp = async () => {
+  console.log('🛑 Forcing WhatsApp disconnection by user request...');
+  try {
+    if (client) {
+      await client.logout();
+      await client.destroy();
+    }
+  } catch (err) {
+    console.log('Error destroying client on forced disconnect:', err.message);
+  }
+  
+  const authPath = path.join(__dirname, '../.wwebjs_auth');
+  const fs = require('fs');
+  if (fs.existsSync(authPath)) {
+    fs.rmSync(authPath, { recursive: true, force: true });
+    console.log('🗑️ Deleted WhatsApp session data.');
+  }
+  
+  status = 'disconnected';
+  qrCodeData = null;
+  client = null;
+  
+  console.log('🔄 Re-initializing WhatsApp after forced disconnect...');
+  setTimeout(() => initWhatsApp(), 1000);
+  return { success: true };
+};
+
 module.exports = {
   initWhatsApp,
   getStatus,
@@ -293,6 +320,7 @@ module.exports = {
   sendMediaMessage,
   resolveInviteLink,
   getGroupIdFromLink,
-  notifyWorkflowUpdate
+  notifyWorkflowUpdate,
+  disconnectWhatsApp
 };
 
