@@ -42,16 +42,41 @@ const initWhatsApp = () => {
     console.log('🔑 WhatsApp Client authenticated!');
   });
 
-  client.on('auth_failure', (msg) => {
+  client.on('auth_failure', async (msg) => {
     console.error('❌ WhatsApp Authentication failure:', msg);
     status = 'disconnected';
     qrCodeData = null;
+    
+    // Auth failed (e.g. user logged out from phone). We must delete the session and re-initialize.
+    try {
+      if (client) await client.destroy();
+    } catch (err) {
+      console.log('Error destroying client on auth_failure:', err.message);
+    }
+    
+    const authPath = path.join(__dirname, '../.wwebjs_auth');
+    const fs = require('fs');
+    if (fs.existsSync(authPath)) {
+      fs.rmSync(authPath, { recursive: true, force: true });
+      console.log('🗑️ Deleted invalid WhatsApp session data.');
+    }
+    
+    client = null;
+    console.log('🔄 Re-initializing WhatsApp after auth failure...');
+    setTimeout(() => initWhatsApp(), 3000);
   });
 
-  client.on('disconnected', (reason) => {
+  client.on('disconnected', async (reason) => {
     console.log('🔌 WhatsApp Client disconnected:', reason);
     status = 'disconnected';
     qrCodeData = null;
+    
+    try {
+      if (client) await client.destroy();
+    } catch (err) {
+      console.log('Error destroying client on disconnected:', err.message);
+    }
+
     // Re-initialize client after disconnection to retry
     client = null;
     setTimeout(() => initWhatsApp(), 5000);
@@ -60,6 +85,8 @@ const initWhatsApp = () => {
   client.initialize().catch(err => {
     console.error('❌ Error initializing WhatsApp client:', err);
     status = 'disconnected';
+    client = null;
+    setTimeout(() => initWhatsApp(), 5000);
   });
 };
 
