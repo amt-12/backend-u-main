@@ -1,5 +1,6 @@
 const BrandLead = require("../../models/BrandLead");
 const User = require("../../models/Auth/User");
+const BookCall = require("../../models/BookCall");
 const dayjs = require("dayjs");
 
 const updateCategoryDataForOnboarding = (lead, selectedCategory) => {
@@ -476,9 +477,29 @@ const addFollowUp = async (req, res) => {
 const getClientBrandLead = async (req, res) => {
   try {
     const { id } = req.params;
-    const lead = await BrandLead.findById(id)
+    let lead = await BrandLead.findById(id)
       .select("brandName companyName contactPerson email phone website instagram requirements budget brandDescription clientSubmitted")
       .lean();
+
+    if (!lead) {
+      const bookCall = await BookCall.findById(id).lean();
+      if (bookCall) {
+        lead = {
+          _id: bookCall._id,
+          brandName: bookCall.brandName || (bookCall.name ? `${bookCall.name}'s Brand` : ""),
+          companyName: bookCall.companyName || "",
+          contactPerson: bookCall.contactPerson || bookCall.name || "",
+          email: bookCall.email || "",
+          phone: bookCall.phone || "",
+          website: bookCall.website || "",
+          instagram: bookCall.instagram || "",
+          requirements: bookCall.tags || [],
+          budget: bookCall.budget || "",
+          brandDescription: bookCall.brandDescription || bookCall.description || "",
+          clientSubmitted: false, // Assuming they haven't submitted yet
+        };
+      }
+    }
 
     if (!lead) {
       return res.status(404).json({ success: false, message: "Brand onboarding session not found" });
@@ -510,7 +531,14 @@ const submitClientBrandLead = async (req, res) => {
       brandDescription,
     } = req.body;
 
-    const lead = await BrandLead.findById(id);
+    let lead = await BrandLead.findById(id);
+    let isBookCall = false;
+
+    if (!lead) {
+      lead = await BookCall.findById(id);
+      if (lead) isBookCall = true;
+    }
+
     if (!lead) {
       return res.status(404).json({ success: false, message: "Brand onboarding session not found" });
     }
@@ -522,14 +550,23 @@ const submitClientBrandLead = async (req, res) => {
     if (phone !== undefined) lead.phone = phone;
     if (website !== undefined) lead.website = website;
     if (instagram !== undefined) lead.instagram = instagram;
-    if (requirements !== undefined) lead.requirements = requirements;
+    if (requirements !== undefined) {
+      if (isBookCall) {
+        lead.tags = requirements; // Map to tags for BookCall
+      } else {
+        lead.requirements = requirements;
+      }
+    }
     if (budget !== undefined) lead.budget = budget;
     if (brandDescription !== undefined) lead.brandDescription = brandDescription;
 
-    lead.clientSubmitted = true;
-    lead.status = "negotiation"; // Progress status to negotiation when client submits form
+    if (!isBookCall) {
+      lead.clientSubmitted = true;
+      lead.status = "negotiation"; // Progress status to negotiation when client submits form
+    }
 
     // Add a system follow-up action to record client submission
+    if (!lead.followUps) lead.followUps = [];
     lead.followUps.push({
       date: new Date(),
       notes: `System Info: Client submitted onboarding form. Instagram: "${instagram || 'N/A'}", Budget: ₹${(budget || 0).toLocaleString('en-IN')}, Requirements: "${requirements || 'N/A'}"`,
@@ -542,8 +579,8 @@ const submitClientBrandLead = async (req, res) => {
       success: true,
       message: "Information submitted successfully",
       data: {
-        brandName: lead.brandName,
-        clientSubmitted: lead.clientSubmitted,
+        brandName: lead.brandName || lead.name,
+        clientSubmitted: isBookCall ? true : lead.clientSubmitted,
       },
     });
   } catch (error) {
