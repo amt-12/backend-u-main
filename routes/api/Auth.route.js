@@ -11,6 +11,7 @@ const adminLogin = require("../../controller/Auth/adminLogin");
 const { getProfile, updateProfile, deleteProfile, uploadProfileImage, updatePassword } = require("../../controller/Auth/profile");
 const { getStaffProfile, updateStaffProfile } = require("../../controller/Auth/staffProfile");
 const { protect } = require("../../middleware/authMiddleware");
+const staffForgotPassword = require("../../controller/Auth/staffForgotPassword");
 
 // Multer config for profile image (single image, 5MB limit)
 const storage = multer.memoryStorage();
@@ -41,5 +42,10 @@ router.put("/profile/password", protect, updatePassword);
 // Staff profile routes
 router.get("/staff/profile", protect, getStaffProfile);
 router.put("/staff/profile", protect, updateStaffProfile);
+
+// Staff Forgot Password routes
+router.post("/staff/send-otp", loginLimiter, staffForgotPassword.sendOtp);
+router.post("/staff/verify-otp", loginLimiter, staffForgotPassword.verifyOtp);
+router.post("/staff/otp-reset-password", loginLimiter, staffForgotPassword.resetPassword);
 
 module.exports = router;
