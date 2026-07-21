@@ -6,11 +6,21 @@ let client = null;
 let qrCodeData = null;
 let status = 'disconnected'; // 'disconnected', 'qr_ready', 'connecting', 'connected'
 
+const killStrayChrome = () => {
+  try {
+    const { execSync } = require('child_process');
+    // Forcefully kill any lingering chromium processes on Linux to prevent CPU/RAM leaks
+    execSync('pkill -f "chrome|chromium"', { stdio: 'ignore' });
+  } catch (e) {}
+};
+
 const initWhatsApp = () => {
   if (client) return;
 
   console.log('🔮 Initializing WhatsApp Client...');
   status = 'connecting';
+  
+  killStrayChrome();
   
   client = new Client({
     authStrategy: new LocalAuth({
@@ -18,15 +28,24 @@ const initWhatsApp = () => {
     }),
     puppeteer: {
       headless: true,
-      args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-gpu']
+      args: [
+        '--no-sandbox', 
+        '--disable-setuid-sandbox', 
+        '--disable-gpu',
+        '--disable-dev-shm-usage', // Prevent shared memory issues on low RAM
+        '--single-process',        // Run in a single process to save RAM
+        '--no-zygote',
+        '--disable-accelerated-2d-canvas',
+        '--disable-software-rasterizer'
+      ]
     }
   });
 
   client.on('qr', async (qr) => {
     console.log('📸 WhatsApp QR code received, generating image...');
-    status = 'qr_ready';
     try {
       qrCodeData = await qrcode.toDataURL(qr);
+      status = 'qr_ready'; // Set status only AFTER image is ready to prevent race conditions
     } catch (err) {
       console.error('Error generating QR code data URL:', err);
     }
@@ -49,10 +68,17 @@ const initWhatsApp = () => {
     
     // Auth failed (e.g. user logged out from phone). We must delete the session and re-initialize.
     try {
-      if (client) await client.destroy();
+      if (client) {
+        await Promise.race([
+          client.destroy(),
+          new Promise(res => setTimeout(res, 5000))
+        ]).catch(() => {});
+      }
     } catch (err) {
       console.log('Error destroying client on auth_failure:', err.message);
     }
+    
+    killStrayChrome();
     
     const authPath = path.join(__dirname, '../.wwebjs_auth');
     const fs = require('fs');
@@ -72,10 +98,17 @@ const initWhatsApp = () => {
     qrCodeData = null;
     
     try {
-      if (client) await client.destroy();
+      if (client) {
+        await Promise.race([
+          client.destroy(),
+          new Promise(res => setTimeout(res, 5000))
+        ]).catch(() => {});
+      }
     } catch (err) {
       console.log('Error destroying client on disconnected:', err.message);
     }
+
+    killStrayChrome();
 
     // Re-initialize client after disconnection to retry
     client = null;
@@ -85,6 +118,7 @@ const initWhatsApp = () => {
   client.initialize().catch(err => {
     console.error('❌ Error initializing WhatsApp client:', err);
     status = 'disconnected';
+    killStrayChrome();
     client = null;
     setTimeout(() => initWhatsApp(), 5000);
   });
@@ -289,12 +323,20 @@ const disconnectWhatsApp = async () => {
   console.log('🛑 Forcing WhatsApp disconnection by user request...');
   try {
     if (client) {
-      await client.logout();
-      await client.destroy();
+      await Promise.race([
+        client.logout().catch(() => {}),
+        new Promise(res => setTimeout(res, 3000))
+      ]);
+      await Promise.race([
+        client.destroy().catch(() => {}),
+        new Promise(res => setTimeout(res, 3000))
+      ]);
     }
   } catch (err) {
     console.log('Error destroying client on forced disconnect:', err.message);
   }
+  
+  killStrayChrome();
   
   const authPath = path.join(__dirname, '../.wwebjs_auth');
   const fs = require('fs');
